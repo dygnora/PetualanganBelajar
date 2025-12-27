@@ -7,6 +7,7 @@ package com.petualanganbelajar.ui.screen;
 import com.petualanganbelajar.core.GameConfig;
 import com.petualanganbelajar.core.GameState;
 import com.petualanganbelajar.core.ScreenManager;
+import com.petualanganbelajar.core.SoundPlayer;
 import com.petualanganbelajar.model.UserModel;
 import com.petualanganbelajar.repository.UserRepository;
 import javax.swing.*;
@@ -18,7 +19,7 @@ import java.awt.*;
  */
 public class SettingsScreen extends JPanel {
     
-    private JCheckBox chkMute; // [BARU] Checkbox Mute
+    private JCheckBox chkMute; 
     private JSlider sliderBGM;
     private JSlider sliderSFX;
     private final UserRepository userRepo;
@@ -30,7 +31,7 @@ public class SettingsScreen extends JPanel {
         setBackground(GameConfig.COLOR_BG);
         
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(10, 15, 10, 15); // Jarak diperkecil sedikit biar muat
+        gbc.insets = new Insets(10, 15, 10, 15); 
         gbc.gridx = 0;
         gbc.fill = GridBagConstraints.HORIZONTAL;
         
@@ -41,22 +42,21 @@ public class SettingsScreen extends JPanel {
         gbc.gridy = 0;
         add(title, gbc);
         
-        // 2. CHECKBOX MUTE [BARU]
+        // 2. CHECKBOX MUTE
         chkMute = new JCheckBox("Senyapkan Semua Suara (Mute)");
         chkMute.setFont(GameConfig.FONT_SUBTITLE);
         chkMute.setBackground(GameConfig.COLOR_BG);
         chkMute.setFocusPainted(false);
         
-        // Logika: Kalau dicentang, matikan slider
         chkMute.addActionListener(e -> {
             boolean isMuted = chkMute.isSelected();
-            toggleSliders(!isMuted); // Kalau Mute=True, maka Enable=False
+            toggleSliders(!isMuted); 
         });
         
         gbc.gridy = 1;
         add(chkMute, gbc);
         
-        // 3. SLIDER BGM (Musik Latar)
+        // 3. SLIDER BGM
         JLabel lblBGM = new JLabel("Volume Musik (BGM)");
         lblBGM.setFont(GameConfig.FONT_SUBTITLE);
         gbc.gridy = 2;
@@ -66,7 +66,7 @@ public class SettingsScreen extends JPanel {
         gbc.gridy = 3;
         add(sliderBGM, gbc);
         
-        // 4. SLIDER SFX (Efek Suara)
+        // 4. SLIDER SFX
         JLabel lblSFX = new JLabel("Volume Efek (SFX)");
         lblSFX.setFont(GameConfig.FONT_SUBTITLE);
         gbc.gridy = 4;
@@ -92,7 +92,7 @@ public class SettingsScreen extends JPanel {
     }
     
     private JSlider createSlider() {
-        JSlider slider = new JSlider(0, 100, 50); // Min 0, Max 100, Default 50
+        JSlider slider = new JSlider(0, 100, 50); 
         slider.setMajorTickSpacing(20);
         slider.setPaintTicks(true);
         slider.setPaintLabels(true);
@@ -100,19 +100,27 @@ public class SettingsScreen extends JPanel {
         return slider;
     }
     
-    // Helper untuk mematikan/menghidupkan slider
     private void toggleSliders(boolean enabled) {
         sliderBGM.setEnabled(enabled);
         sliderSFX.setEnabled(enabled);
     }
     
+    // [UPDATE] Saat layar muncul, load settingan user dari database/memory
     @Override
     public void setVisible(boolean aFlag) {
         super.setVisible(aFlag);
         if (aFlag) {
-            // TODO: Nanti ambil state mute dari database/config
-            // Contoh: chkMute.setSelected(GameConfig.IS_MUTED);
-            // toggleSliders(!chkMute.isSelected());
+            UserModel user = GameState.getCurrentUser();
+            if (user != null) {
+                // Jika sudah login, set slider sesuai preferensi user
+                sliderBGM.setValue(user.getBgmVolume());
+                sliderSFX.setValue(user.getSfxVolume());
+                // (Optional: Jika volume 0, bisa auto check mute)
+            } else {
+                // Jika belum login (di menu utama), pakai default 80/100
+                sliderBGM.setValue(80);
+                sliderSFX.setValue(100);
+            }
         }
     }
     
@@ -121,18 +129,22 @@ public class SettingsScreen extends JPanel {
         int bgmVol = sliderBGM.getValue();
         int sfxVol = sliderSFX.getValue();
         
-        // Logika Simpan
-        // GameConfig.IS_MUTED = isMuted;
+        // 1. Terapkan ke Audio Engine (Langsung terasa efeknya)
+        SoundPlayer.getInstance().setMute(isMuted); 
+        // Nanti SoundPlayer bisa ditambah setVolume(bgmVol) jika mau lebih canggih
         
-        String status = isMuted ? "Suara: MATI" : "Suara: HIDUP (" + bgmVol + "%)";
-        System.out.println("Pengaturan Disimpan: " + status);
-        
-        // Update DB User jika login
+        // 2. Simpan ke Database User (Jika sedang Login)
         UserModel user = GameState.getCurrentUser();
         if (user != null) {
-            // userRepo.updateSettings(user.getId(), isMuted, bgmVol, sfxVol);
+            // Update Database
+            userRepo.updateVolume(user.getId(), bgmVol, sfxVol);
+            
+            // Update juga object user yang sedang aktif di memori (biar sinkron)
+            user.setBgmVolume(bgmVol);
+            user.setSfxVolume(sfxVol);
         }
         
+        String status = isMuted ? "Suara: MATI" : "Suara: HIDUP (" + bgmVol + "%)";
         JOptionPane.showMessageDialog(this, "Pengaturan Disimpan!\n" + status);
         ScreenManager.getInstance().showScreen("MAIN_MENU");
     }

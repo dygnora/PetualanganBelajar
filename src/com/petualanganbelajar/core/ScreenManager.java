@@ -3,12 +3,15 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
 package com.petualanganbelajar.core;
+
 import javax.swing.*;
 import java.awt.*;
 import com.petualanganbelajar.ui.screen.GameScreen;
-import com.petualanganbelajar.ui.screen.LevelSelectionScreen; // [UPDATE] Import baru
-import com.petualanganbelajar.model.ModuleModel;
+import com.petualanganbelajar.ui.screen.LevelSelectionScreen;
+import com.petualanganbelajar.ui.screen.StoryScreen; // [BARU] Import Story
 import com.petualanganbelajar.ui.screen.ResultScreen;
+import com.petualanganbelajar.model.ModuleModel;
+
 /**
  *
  * @author DD
@@ -19,10 +22,10 @@ public class ScreenManager extends JPanel {
     private final JPanel mainPanel;
     private final CardLayout cardLayout;
     
-    // Simpan referensi layar penting agar bisa diakses langsung
+    // Referensi ke layar-layar dinamis
     private GameScreen gameScreen; 
-    private LevelSelectionScreen levelScreen; // [UPDATE] Tambah referensi layar level
-    
+    private LevelSelectionScreen levelScreen;
+    private StoryScreen storyScreen; // [BARU] Referensi layar cerita
     private ResultScreen resultScreen;
 
     // Singleton
@@ -58,6 +61,7 @@ public class ScreenManager extends JPanel {
         window.setVisible(true);
     }
 
+    // Mendaftarkan layar statis (Menu, Title, Splash, Settings, dll)
     public void addScreen(String name, JPanel panel) {
         mainPanel.add(panel, name);
     }
@@ -68,33 +72,45 @@ public class ScreenManager extends JPanel {
     
     // --- LOGIKA UTAMA NAVIGASI GAME ---
     
-    // [UPDATE] Method baru untuk menampilkan Pilihan Level
+    // 1. TAMPILKAN PILIHAN LEVEL
     public void showLevelSelect(ModuleModel module) {
-        // Lazy Loading: Layar baru dibuat saat pertama kali dibutuhkan
         if (levelScreen == null) {
             levelScreen = new LevelSelectionScreen();
             addScreen("LEVEL_SELECT", levelScreen);
         }
         
-        // Set modul agar layar level tahu judulnya (Angka/Huruf/dll)
         levelScreen.setModule(module); 
         showScreen("LEVEL_SELECT");
     }
     
-    // [UPDATE] Method Start Game sekarang menerima parameter Level
-    public void startGame(ModuleModel module, int level) {
+    // 2. [BARU] TAMPILKAN STORY / TUTORIAL
+    // Dipanggil saat level diklik. Ini jembatan sebelum masuk game.
+    public void showStory(ModuleModel module, int level) {
+        if (storyScreen == null) {
+            storyScreen = new StoryScreen();
+            addScreen("STORY", storyScreen);
+        }
+        
+        storyScreen.setupStory(module, level); // Siapkan teks cerita & tutorial
+        showScreen("STORY");
+    }
+    
+    // 3. START GAME (GAMEPLAY)
+    // Dipanggil oleh tombol "AYO MULAI" di StoryScreen
+    public void showGame(ModuleModel module, int level) {
         if (gameScreen == null) {
             gameScreen = new GameScreen();
             addScreen("GAME", gameScreen);
         }
         
-        // Reset skor dan set modul serta level
+        // Reset skor dan load soal baru
         gameScreen.startGame(module, level);
         
         // Tampilkan layarnya
         showScreen("GAME");
     }
     
+    // 4. TAMPILKAN HASIL (RESULT)
     public void showResult(ModuleModel module, int level, int score, int maxScore) {
         if (resultScreen == null) {
             resultScreen = new ResultScreen();

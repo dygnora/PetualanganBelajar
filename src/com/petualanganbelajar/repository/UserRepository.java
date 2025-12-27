@@ -82,4 +82,23 @@ public class UserRepository {
         }
     }
     
+    // 4. UPDATE VOLUME SETTINGS
+    public void updateVolume(int userId, int bgmVol, int sfxVol) {
+        String sql = "UPDATE users SET bgm_volume = ?, sfx_volume = ? WHERE id = ?";
+        
+        try (Connection conn = DatabaseConnection.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setInt(1, bgmVol);
+            pstmt.setInt(2, sfxVol);
+            pstmt.setInt(3, userId);
+            
+            pstmt.executeUpdate();
+            System.out.println("LOG: Volume user " + userId + " diupdate (BGM:" + bgmVol + ", SFX:" + sfxVol + ")");
+            
+        } catch (SQLException e) {
+            System.err.println("Gagal update volume: " + e.getMessage());
+        }
+    }
+    
 }

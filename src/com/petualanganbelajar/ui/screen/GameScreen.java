@@ -1,12 +1,14 @@
 package com.petualanganbelajar.ui.screen;
 
 import com.petualanganbelajar.core.GameConfig;
-import com.petualanganbelajar.core.GameState; // [BARU] Import GameState
+import com.petualanganbelajar.core.GameState;
 import com.petualanganbelajar.core.ScreenManager;
+import com.petualanganbelajar.core.SoundPlayer; // [PENTING] Import Sound
 import com.petualanganbelajar.model.ModuleModel;
 import com.petualanganbelajar.model.QuestionModel;
 import com.petualanganbelajar.model.UserModel;
 import com.petualanganbelajar.repository.QuestionRepository;
+import com.petualanganbelajar.repository.ProgressRepository; // [PENTING] Import Progress
 import javax.swing.*;
 import java.awt.*;
 import java.util.List;
@@ -22,9 +24,9 @@ public class GameScreen extends JPanel {
     private int maxScore = 0;
     
     // Komponen UI
-    private JLabel lblUserInfo; // [BARU] Info User di Kiri
-    private JLabel lblLevelInfo; // [BARU] Info Level di Tengah
-    private JLabel lblScore;    // Info Skor di Kanan
+    private JLabel lblUserInfo;
+    private JLabel lblLevelInfo;
+    private JLabel lblScore;    
     
     private JLabel lblQuestionText;
     private JLabel lblQuestionImage;
@@ -34,7 +36,7 @@ public class GameScreen extends JPanel {
         setLayout(new BorderLayout());
         setBackground(GameConfig.COLOR_BG);
         
-        // 1. HEADER BARU (User - Level - Skor)
+        // 1. HEADER
         JPanel headerPanel = new JPanel(new BorderLayout());
         headerPanel.setBackground(GameConfig.COLOR_PRIMARY);
         headerPanel.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
@@ -60,7 +62,7 @@ public class GameScreen extends JPanel {
         
         add(headerPanel, BorderLayout.NORTH);
         
-        // 2. Area Soal (Tengah)
+        // 2. Area Soal
         JPanel questionPanel = new JPanel();
         questionPanel.setLayout(new BoxLayout(questionPanel, BoxLayout.Y_AXIS));
         questionPanel.setBackground(Color.WHITE);
@@ -82,7 +84,7 @@ public class GameScreen extends JPanel {
         
         add(questionPanel, BorderLayout.CENTER);
         
-        // 3. Area Jawaban (Bawah)
+        // 3. Area Jawaban
         JPanel optionsPanel = new JPanel(new GridLayout(1, 3, 20, 0));
         optionsPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         optionsPanel.setBackground(GameConfig.COLOR_BG);
@@ -115,7 +117,7 @@ public class GameScreen extends JPanel {
         this.score = 0;
         this.currentQuestionIndex = 0;
         
-        // [UPDATE] TAMPILKAN USER INFO
+        // TAMPILKAN USER INFO
         UserModel u = GameState.getCurrentUser();
         if (u != null) {
             String avatarVisual = "👤"; 
@@ -153,7 +155,7 @@ public class GameScreen extends JPanel {
         QuestionModel q = questionList.get(currentQuestionIndex);
         lblQuestionText.setText("<html><center>" + q.getQuestionText() + "</center></html>");
         
-        // Logic Gambar (Placeholder code dari diskusi sebelumnya)
+        // 1. Logic Gambar
         String imageName = q.getQuestionImage();
         if (imageName != null && !imageName.isEmpty()) {
             try {
@@ -170,6 +172,13 @@ public class GameScreen extends JPanel {
             }
         } else {
             lblQuestionImage.setVisible(false);
+        }
+
+        // 2. [BARU] Logic Audio Soal (Voiceover)
+        // Jika soal punya rekaman suara (misal: "Hitung jumlah apel"), mainkan!
+        String audioName = q.getQuestionAudio();
+        if (audioName != null && !audioName.isEmpty()) {
+            SoundPlayer.getInstance().playSFX(audioName); 
         }
 
         btnA.setText(q.getOptionA());
@@ -190,8 +199,15 @@ public class GameScreen extends JPanel {
         if (q.checkAnswer(selectedAnswer)) {
             int points = currentLevel * 10; 
             score += points;
+            
+            // [LOGIC BARU] SUARA BENAR
+            SoundPlayer.getInstance().playSFX("correct.wav"); 
+            
             JOptionPane.showMessageDialog(this, "HEBAT! Jawaban Benar! (+" + points + ")");
         } else {
+            // [LOGIC BARU] SUARA SALAH
+            SoundPlayer.getInstance().playSFX("wrong.wav"); 
+            
             JOptionPane.showMessageDialog(this, "Yah salah... Jawaban yang benar: " + q.getOptionA()); 
         }
         
@@ -201,6 +217,25 @@ public class GameScreen extends JPanel {
     }
     
     private void finishGame() {
+        // [LOGIC BARU] SAVE PROGRESS & UNLOCK LEVEL
+        UserModel user = GameState.getCurrentUser();
+        if (user != null) {
+            ProgressRepository progressRepo = new ProgressRepository();
+            
+            // 1. Simpan history skor ke Leaderboard
+            progressRepo.saveScore(user.getName(), user.getAvatar(), currentModule.getId(), currentLevel, score);
+            
+            // 2. Cek apakah lulus KKM (70%)
+            double percentage = ((double) score / maxScore) * 100;
+            if (percentage >= 70) {
+                System.out.println("Lulus! Membuka level berikutnya...");
+                progressRepo.unlockNextLevel(user.getId(), currentModule.getId(), currentLevel);
+                
+                // Mainkan suara menang level (Opsional)
+                SoundPlayer.getInstance().playSFX("level_complete.wav");
+            }
+        }
+        
         ScreenManager.getInstance().showResult(currentModule, currentLevel, score, maxScore);
     }
 }

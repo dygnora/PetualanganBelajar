@@ -3,43 +3,47 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
 package com.petualanganbelajar.ui.screen;
+
 import com.petualanganbelajar.core.GameConfig;
 import com.petualanganbelajar.core.GameState;
 import com.petualanganbelajar.core.ScreenManager;
 import com.petualanganbelajar.model.ModuleModel;
+import com.petualanganbelajar.model.UserModel;
 import com.petualanganbelajar.repository.ProgressRepository;
 import javax.swing.*;
 import java.awt.*;
+
 /**
  *
  * @author DD
  */
 public class LevelSelectionScreen extends JPanel {
-    private final ProgressRepository progressRepo;
-    private final JPanel buttonPanel;
-    private ModuleModel currentModule; // Modul apa yang sedang dipilih?
-    private JLabel titleLabel;
+    
+    private ModuleModel currentModule;
+    private JLabel lblTitle;
+    private JPanel levelsPanel;
+    private ProgressRepository progressRepo;
 
     public LevelSelectionScreen() {
         this.progressRepo = new ProgressRepository();
         
         setLayout(new BorderLayout());
         setBackground(GameConfig.COLOR_BG);
-
-        // 1. Header
-        titleLabel = new JLabel("PILIH LEVEL", SwingConstants.CENTER);
-        titleLabel.setFont(GameConfig.FONT_TITLE);
-        titleLabel.setForeground(GameConfig.COLOR_PRIMARY);
-        titleLabel.setBorder(BorderFactory.createEmptyBorder(30, 0, 30, 0));
-        add(titleLabel, BorderLayout.NORTH);
-
-        // 2. Container Tombol Level
-        buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 40, 0)); // Flow layout horizontal
-        buttonPanel.setBackground(GameConfig.COLOR_BG);
-        add(buttonPanel, BorderLayout.CENTER);
-
-        // 3. Tombol Kembali
-        JButton btnBack = new JButton("KEMBALI KE MODUL");
+        
+        // 1. HEADER
+        lblTitle = new JLabel("PILIH LEVEL", SwingConstants.CENTER);
+        lblTitle.setFont(GameConfig.FONT_TITLE);
+        lblTitle.setForeground(GameConfig.COLOR_PRIMARY);
+        lblTitle.setBorder(BorderFactory.createEmptyBorder(30, 0, 30, 0));
+        add(lblTitle, BorderLayout.NORTH);
+        
+        // 2. LEVEL BUTTONS CONTAINER
+        levelsPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 40, 0));
+        levelsPanel.setBackground(GameConfig.COLOR_BG);
+        add(levelsPanel, BorderLayout.CENTER);
+        
+        // 3. BACK BUTTON
+        JButton btnBack = new JButton("KEMBALI");
         btnBack.setFont(GameConfig.FONT_BODY);
         btnBack.addActionListener(e -> ScreenManager.getInstance().showScreen("MODULE_SELECT"));
         
@@ -48,49 +52,55 @@ public class LevelSelectionScreen extends JPanel {
         footer.add(btnBack);
         add(footer, BorderLayout.SOUTH);
     }
-
-    // METHOD PENTING: Dipanggil sebelum layar ditampilkan
+    
+    // Method ini dipanggil oleh ScreenManager sebelum layar ditampilkan
     public void setModule(ModuleModel module) {
         this.currentModule = module;
-        this.titleLabel.setText("MODUL: " + module.getName());
+        lblTitle.setText("BELAJAR: " + module.getName().toUpperCase());
         refreshLevels();
     }
-
+    
     private void refreshLevels() {
-        buttonPanel.removeAll();
+        levelsPanel.removeAll();
         
-        int userId = GameState.getCurrentUser().getId();
-        int highestLevel = progressRepo.getHighestLevelUnlocked(userId, currentModule.getId());
-
-        // Buat 3 Tombol Level
+        UserModel user = GameState.getCurrentUser();
+        int highestUnlocked = 1; // Default
+        if (user != null) {
+            highestUnlocked = progressRepo.getHighestLevelUnlocked(user.getId(), currentModule.getId());
+        }
+        
+        // Buat Tombol Level 1, 2, 3
         for (int i = 1; i <= 3; i++) {
-            buttonPanel.add(createLevelButton(i, i <= highestLevel));
-        }
-        
-        buttonPanel.revalidate();
-        buttonPanel.repaint();
-    }
-
-    private JButton createLevelButton(int level, boolean isUnlocked) {
-        JButton btn = new JButton("LEVEL " + level);
-        btn.setPreferredSize(new Dimension(200, 200));
-        btn.setFont(new Font("Arial", Font.BOLD, 30));
-        btn.setFocusPainted(false);
-        
-        if (isUnlocked) {
-            btn.setBackground(GameConfig.COLOR_ACCENT);
-            btn.setForeground(Color.WHITE);
-            // Aksi Main
-            btn.addActionListener(e -> {
-                ScreenManager.getInstance().startGame(currentModule, level); // <-- Perhatikan parameter baru (level)
+            int lvlNum = i;
+            boolean isUnlocked = (lvlNum <= highestUnlocked);
+            
+            JButton btnLevel = new JButton("LEVEL " + lvlNum);
+            btnLevel.setPreferredSize(new Dimension(150, 150));
+            btnLevel.setFont(new Font("Arial", Font.BOLD, 24));
+            
+            if (isUnlocked) {
+                btnLevel.setBackground(Color.WHITE);
+                btnLevel.setForeground(GameConfig.COLOR_PRIMARY);
+                btnLevel.setBorder(BorderFactory.createLineBorder(GameConfig.COLOR_PRIMARY, 3));
+            } else {
+                btnLevel.setBackground(Color.LIGHT_GRAY);
+                btnLevel.setForeground(Color.GRAY);
+                btnLevel.setText("🔒 LVL " + lvlNum);
+                btnLevel.setEnabled(false); // Disable tombol
+            }
+            
+            // AKSI TOMBOL LEVEL
+            btnLevel.addActionListener(e -> {
+                if (isUnlocked) {
+                    // [PERBAIKAN] Panggil showStory, bukan startGame
+                    ScreenManager.getInstance().showStory(currentModule, lvlNum);
+                }
             });
-        } else {
-            btn.setBackground(Color.LIGHT_GRAY);
-            btn.setForeground(Color.DARK_GRAY);
-            btn.setText("<html><center>LEVEL " + level + "<br><small>(Terkunci)</small></center></html>");
-            btn.setEnabled(false); // Matikan tombol
+            
+            levelsPanel.add(btnLevel);
         }
         
-        return btn;
+        levelsPanel.revalidate();
+        levelsPanel.repaint();
     }
 }

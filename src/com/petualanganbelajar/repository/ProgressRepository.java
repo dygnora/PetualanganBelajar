@@ -99,5 +99,31 @@ public class ProgressRepository {
         }
     }
     
+    // 3. HITUNG TOTAL SKOR KUMULATIF (Skor Terbaik per Level dijumlahkan)
+    public int calculateTotalScore(String userName) {
+        // Query ini menjumlahkan HANYA skor tertinggi dari setiap level yang pernah dimainkan
+        String sql = "SELECT SUM(max_score) FROM (" +
+                     "  SELECT MAX(score) as max_score " +
+                     "  FROM game_results " +
+                     "  WHERE user_name = ? " +
+                     "  GROUP BY module_id, level" +
+                     ")";
+                     
+        try (Connection conn = DatabaseConnection.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setString(1, userName);
+            ResultSet rs = pstmt.executeQuery();
+            
+            if (rs.next()) {
+                return rs.getInt(1); // Mengembalikan hasil SUM
+            }
+            
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return 0; // Jika belum pernah main
+    }
+    
     
 }

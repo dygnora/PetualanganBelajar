@@ -3,32 +3,30 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
 package com.petualanganbelajar.ui.screen;
+
 import com.petualanganbelajar.core.GameConfig;
-import com.petualanganbelajar.core.GameState;
 import com.petualanganbelajar.core.ScreenManager;
 import com.petualanganbelajar.model.ModuleModel;
-import com.petualanganbelajar.repository.ProgressRepository;
 import javax.swing.*;
 import java.awt.*;
+
 /**
  *
  * @author DD
  */
 public class ResultScreen extends JPanel {
-    private final ProgressRepository progressRepo;
+    
     private JLabel lblTitle;
     private JLabel lblScore;
-    private JLabel lblStars;
-    private JButton btnNext;
+    private JLabel lblStar;
     private JButton btnRetry;
+    private JButton btnMenu;
     
-    // Data sementara
-    private ModuleModel currentModule;
-    private int currentLevel;
+    // Simpan info terakhir buat fitur Retry
+    private ModuleModel lastModule;
+    private int lastLevel;
 
     public ResultScreen() {
-        this.progressRepo = new ProgressRepository();
-        
         setLayout(new GridBagLayout());
         setBackground(GameConfig.COLOR_BG);
         
@@ -36,85 +34,76 @@ public class ResultScreen extends JPanel {
         gbc.insets = new Insets(10, 10, 10, 10);
         gbc.gridx = 0;
         
-        // 1. Judul Hasil
-        lblTitle = new JLabel("HASIL PERMAINAN");
+        // 1. Judul
+        lblTitle = new JLabel("HASIL BELAJAR");
         lblTitle.setFont(GameConfig.FONT_TITLE);
         lblTitle.setForeground(GameConfig.COLOR_PRIMARY);
         gbc.gridy = 0;
         add(lblTitle, gbc);
         
-        // 2. Bintang (Visual Reward)
-        lblStars = new JLabel("★★★"); // Pakai simbol bintang klasik (Black Star Unicode)
-        lblStars.setFont(new Font("Serif", Font.BOLD, 80)); // Font standar yang besar
-        lblStars.setForeground(new Color(255, 215, 0)); // WARNA EMAS (Gold)
-        
+        // 2. Bintang Visual (Emoji Besar)
+        lblStar = new JLabel("⭐⭐⭐");
+        lblStar.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 60));
         gbc.gridy = 1;
-        add(lblStars, gbc);
+        add(lblStar, gbc);
         
         // 3. Skor Angka
-        lblScore = new JLabel("Skor: 0");
+        lblScore = new JLabel("SKOR: 0 / 0");
         lblScore.setFont(GameConfig.FONT_SUBTITLE);
         gbc.gridy = 2;
         add(lblScore, gbc);
         
-        // 4. Panel Tombol
-        JPanel btnPanel = new JPanel(new FlowLayout());
-        btnPanel.setBackground(GameConfig.COLOR_BG);
-        
-        btnRetry = new JButton("ULANGI");
+        // 4. Tombol Main Lagi
+        btnRetry = new JButton("MAIN LAGI");
+        btnRetry.setPreferredSize(new Dimension(200, 50));
         btnRetry.setFont(GameConfig.FONT_BODY);
-        btnRetry.addActionListener(e -> ScreenManager.getInstance().startGame(currentModule, currentLevel));
+        btnRetry.setBackground(GameConfig.COLOR_ACCENT);
+        btnRetry.setForeground(Color.WHITE);
         
-        btnNext = new JButton("LEVEL SELANJUTNYA");
-        btnNext.setFont(GameConfig.FONT_BODY);
-        btnNext.setBackground(GameConfig.COLOR_ACCENT);
-        btnNext.setForeground(Color.WHITE);
-        btnNext.addActionListener(e -> ScreenManager.getInstance().showLevelSelect(currentModule));
-        
-        btnPanel.add(btnRetry);
-        btnPanel.add(btnNext);
+        // [PERBAIKAN] Ganti startGame menjadi showGame
+        btnRetry.addActionListener(e -> {
+            ScreenManager.getInstance().showGame(lastModule, lastLevel);
+        });
         
         gbc.gridy = 3;
-        add(btnPanel, gbc);
+        gbc.insets = new Insets(30, 10, 10, 10);
+        add(btnRetry, gbc);
+        
+        // 5. Tombol Kembali Menu
+        btnMenu = new JButton("MENU UTAMA");
+        btnMenu.setPreferredSize(new Dimension(200, 50));
+        btnMenu.setFont(GameConfig.FONT_BODY);
+        
+        btnMenu.addActionListener(e -> {
+            ScreenManager.getInstance().showScreen("MAIN_MENU");
+        });
+        
+        gbc.gridy = 4;
+        gbc.insets = new Insets(10, 10, 10, 10);
+        add(btnMenu, gbc);
     }
     
     public void showResult(ModuleModel module, int level, int score, int maxScore) {
-        this.currentModule = module;
-        this.currentLevel = level;
+        this.lastModule = module;
+        this.lastLevel = level;
         
-        // Hitung Persentase
-        double percentage = (double) score / maxScore * 100;
+        lblScore.setText("SKOR: " + score + " / " + maxScore);
         
-        lblScore.setText("Skor Kamu: " + score + " / " + maxScore);
+        // Logika Bintang Sederhana
+        double percentage = ((double) score / maxScore) * 100;
         
-        // Logika Bintang & Unlock
-        if (percentage >= 70) {
-            // LULUS
-            lblTitle.setText("LUAR BIASA!");
-            lblTitle.setForeground(new Color(34, 139, 34)); // Hijau (ForestGreen) biar keren
-            
-            lblStars.setText("★★★"); // Tiga Bintang Penuh
-            lblStars.setForeground(new Color(255, 215, 0)); // Warna Emas
-            
-            btnNext.setVisible(true);
-            
-            // Simpan ke DB & Buka Level Baru
-            int userId = GameState.getCurrentUser().getId();
-            String userName = GameState.getCurrentUser().getName();
-            String avatar = GameState.getCurrentUser().getAvatar();
-            
-            progressRepo.saveScore(userName, avatar, module.getId(), level, score);
-            progressRepo.unlockNextLevel(userId, module.getId(), level);
-            
+        if (percentage == 100) {
+            lblTitle.setText("SEMPURNA!");
+            lblStar.setText("⭐⭐⭐");
+        } else if (percentage >= 70) {
+            lblTitle.setText("HEBAT!");
+            lblStar.setText("⭐⭐");
+        } else if (percentage >= 40) {
+            lblTitle.setText("BAGUS!");
+            lblStar.setText("⭐");
         } else {
-            // GAGAL
-            lblTitle.setText("JANGAN MENYERAH!");
-            lblTitle.setForeground(Color.RED);
-            
-            lblStars.setText("★☆☆"); // Satu Bintang, Dua Kosong
-            lblStars.setForeground(Color.GRAY); // Warna Abu-abu sedih
-            
-            btnNext.setVisible(false);
+            lblTitle.setText("COBA LAGI YA!");
+            lblStar.setText("✊");
         }
     }
 }
