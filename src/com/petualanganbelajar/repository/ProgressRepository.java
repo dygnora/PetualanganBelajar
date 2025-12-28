@@ -1,129 +1,111 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package com.petualanganbelajar.repository;
+
 import com.petualanganbelajar.db.DatabaseConnection;
 import java.sql.*;
-/**
- *
- * @author DD
- */
+
 public class ProgressRepository {
-    // Cek level tertinggi yang sudah dibuka user untuk modul tertentu
+
+    // 1. Cek level tertinggi
     public int getHighestLevelUnlocked(int userId, int moduleId) {
         String sql = "SELECT highest_level_unlocked FROM user_progress WHERE user_id = ? AND module_id = ?";
-        
         try (Connection conn = DatabaseConnection.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            
             pstmt.setInt(1, userId);
             pstmt.setInt(2, moduleId);
-            
             ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                return rs.getInt("highest_level_unlocked");
-            }
+            if (rs.next()) return rs.getInt("highest_level_unlocked");
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        
-        // Default: Jika belum ada data, berarti baru Level 1 yang terbuka
-        return 1;
+        return 1; // Default Level 1
     }
-    
-    
-    // 1. SIMPAN HASIL PERMAINAN KE HISTORY
+
+    // 2. Simpan Skor
     public void saveScore(String userName, String avatar, int moduleId, int level, int score) {
         String sql = "INSERT INTO game_results (user_name, avatar, module_id, level, score, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))";
-        
         try (Connection conn = DatabaseConnection.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            
             pstmt.setString(1, userName);
             pstmt.setString(2, avatar);
             pstmt.setInt(3, moduleId);
             pstmt.setInt(4, level);
             pstmt.setInt(5, score);
-            
             pstmt.executeUpdate();
-            System.out.println("LOG: Skor berhasil disimpan.");
-            
         } catch (SQLException e) {
             e.printStackTrace();
         }
     }
 
-    // 2. BUKA LEVEL SELANJUTNYA (Jika lulus KKM)
+    // 3. Buka Level Berikutnya [UPDATED LOGIC]
     public void unlockNextLevel(int userId, int moduleId, int currentLevel) {
-        // Logika: Jika baru saja menang Level 1, maka kita buka Level 2.
+        // Jika currentLevel 3 lulus, nextLevel jadi 4. 
+        // Angka 4 ini kita anggap sebagai penanda "Modul Selesai" di database.
         int nextLevel = currentLevel + 1;
-        if (nextLevel > 3) return; // Maksimal level 3
-
-        // Cek dulu level yg sekarang terbuka
-        int currentUnlocked = getHighestLevelUnlocked(userId, moduleId);
         
-        // Hanya update jika level user naik (biar ga turun)
+        // Kita ijinkan sampai 4 (Tamat Modul), tapi tidak lebih.
+        if (nextLevel > 4) return; 
+
+        int currentUnlocked = getHighestLevelUnlocked(userId, moduleId);
         if (nextLevel > currentUnlocked) {
-            // Cek apakah data progress user sudah ada?
             String checkSql = "SELECT id FROM user_progress WHERE user_id = ? AND module_id = ?";
             String updateSql;
             
-            // Logic: Insert or Update
             try (Connection conn = DatabaseConnection.connect();
                  PreparedStatement checkStmt = conn.prepareStatement(checkSql)) {
-                
                 checkStmt.setInt(1, userId);
                 checkStmt.setInt(2, moduleId);
                 ResultSet rs = checkStmt.executeQuery();
                 
                 if (rs.next()) {
-                    // Update
                     updateSql = "UPDATE user_progress SET highest_level_unlocked = ? WHERE user_id = ? AND module_id = ?";
                 } else {
-                    // Insert Baru
                     updateSql = "INSERT INTO user_progress (highest_level_unlocked, user_id, module_id) VALUES (?, ?, ?)";
                 }
-                
+
                 try (PreparedStatement upStmt = conn.prepareStatement(updateSql)) {
                     upStmt.setInt(1, nextLevel);
                     upStmt.setInt(2, userId);
                     upStmt.setInt(3, moduleId);
                     upStmt.executeUpdate();
-                    System.out.println("LOG: Level " + nextLevel + " Terbuka!");
+                    System.out.println("LOG: Progress Update -> User " + userId + " Modul " + moduleId + " ke Level " + nextLevel);
                 }
-                
             } catch (SQLException e) {
                 e.printStackTrace();
             }
         }
     }
-    
-    // 3. HITUNG TOTAL SKOR KUMULATIF (Skor Terbaik per Level dijumlahkan)
+
+    // 4. Hitung Total Skor
     public int calculateTotalScore(String userName) {
-        // Query ini menjumlahkan HANYA skor tertinggi dari setiap level yang pernah dimainkan
-        String sql = "SELECT SUM(max_score) FROM (" +
-                     "  SELECT MAX(score) as max_score " +
-                     "  FROM game_results " +
-                     "  WHERE user_name = ? " +
-                     "  GROUP BY module_id, level" +
-                     ")";
-                     
+        String sql = "SELECT SUM(score) FROM game_results WHERE user_name = ?";
         try (Connection conn = DatabaseConnection.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            
             pstmt.setString(1, userName);
             ResultSet rs = pstmt.executeQuery();
-            
-            if (rs.next()) {
-                return rs.getInt(1); // Mengembalikan hasil SUM
-            }
-            
+            if (rs.next()) return rs.getInt(1);
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return 0; // Jika belum pernah main
+        return 0;
     }
-    
-    
+
+    // 5. [BARU] Cek Apakah Game Tamat (Semua Modul mencapai Level 4)
+    public boolean isGameCompleted(int userId) {
+        // Kita anggap game tamat jika user punya 4 record di user_progress (untuk 4 modul)
+        // DAN semua record itu memiliki highest_level_unlocked >= 4.
+        
+        String sql = "SELECT COUNT(*) FROM user_progress WHERE user_id = ? AND highest_level_unlocked >= 4";
+        try (Connection conn = DatabaseConnection.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, userId);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                // Ada 4 modul total. Jika count == 4, berarti tamat.
+                return rs.getInt(1) >= 4; 
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
 }

@@ -1,125 +1,240 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package com.petualanganbelajar.ui.screen;
-import com.petualanganbelajar.core.GameConfig;
+
 import com.petualanganbelajar.core.ScreenManager;
-import com.petualanganbelajar.repository.UserRepository;
-import com.petualanganbelajar.model.UserModel;
+import com.petualanganbelajar.core.SoundPlayer;
+
 import javax.swing.*;
 import java.awt.*;
-import java.util.List;
-/**
- *
- * @author DD
- */
-public class MainMenuScreen extends JPanel {
-    // VARIABEL GLOBAL DI CLASS INI
-    private final UserRepository userRepo;
-    private JButton btnContinue;
-    private JButton btnNewGame;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.io.File;
 
-    // --- BAGIAN INI YANG TADI HILANG (CONSTRUCTOR) ---
+public class MainMenuScreen extends JPanel {
+
+    private Image bgImage;
+
     public MainMenuScreen() {
-        this.userRepo = new UserRepository();
-        
-        setLayout(new GridBagLayout());
-        setBackground(GameConfig.COLOR_BG);
-        
+        setLayout(new GridBagLayout()); // Layout Utama
+        loadAssets();
+        initUI();
+    }
+
+    private void loadAssets() {
+        try {
+            File fBg = new File("resources/images/bg_menu.png");
+            if (fBg.exists()) bgImage = new ImageIcon(fBg.getAbsolutePath()).getImage();
+        } catch (Exception e) {}
+    }
+
+    private void initUI() {
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(15, 0, 15, 0); 
-        gbc.gridx = 0;
+
+        // ========================================================
+        // 1. PANEL MENU TENGAH (Mulai, Leaderboard, Setting, Keluar)
+        // ========================================================
+        // Kita gunakan GridBagLayout juga di dalam panel ini agar jaraknya RAPAT
+        JPanel centerMenuPanel = new JPanel(new GridBagLayout());
+        centerMenuPanel.setOpaque(false);
+
+        GridBagConstraints gbcMenu = new GridBagConstraints();
+        gbcMenu.gridx = 0;
+        gbcMenu.anchor = GridBagConstraints.CENTER;
         
-        // Baris 0: JUDUL
-        JLabel title = new JLabel("MENU UTAMA");
-        title.setFont(GameConfig.FONT_TITLE);
-        title.setForeground(GameConfig.COLOR_PRIMARY);
-        gbc.gridy = 0;
-        add(title, gbc);
-        
-        // Baris 1: LANJUTKAN
-        btnContinue = createMenuButton("LANJUTKAN PETUALANGAN");
-        btnContinue.addActionListener(e -> {
-            ScreenManager.getInstance().showScreen("PROFILE_SELECT");
-        });
-        gbc.gridy = 1;
-        add(btnContinue, gbc);
-        
-        // Baris 2: MULAI BARU
-        btnNewGame = createMenuButton("MULAI BARU");
+        // --- Setting Jarak Antar Tombol (Insets) ---
+        // Top, Left, Bottom, Right. Kita beri jarak bawah 10px saja.
+        gbcMenu.insets = new Insets(0, 0, -50, 0); 
+
+        // 1. Tombol MULAI BARU (Paling Besar)
+        ImageButton btnNewGame = new ImageButton("btn_start.png");
+        btnNewGame.setButtonSize(400, 200); // Lebar & Besar
         btnNewGame.addActionListener(e -> {
-            List<UserModel> users = userRepo.getAllActiveUsers();
-            if (users.size() >= 3) {
-                JOptionPane.showMessageDialog(this, 
-                    "Slot profil penuh (Maksimal 3).\nSilakan 'Lanjutkan' dan hapus salah satu profil lama.",
-                    "Slot Penuh", JOptionPane.WARNING_MESSAGE);
-            } else {
-                ScreenManager.getInstance().showScreen("PROFILE_CREATE");
-            }
+            playSound("click");
+            ScreenManager.getInstance().showScreen("PROFILE_CREATE");
         });
-        gbc.gridy = 2;
-        add(btnNewGame, gbc);
         
-        // Baris 3: PAPAN JUARA (Perbaikan: gridy = 3)
-        JButton btnLeaderboard = createMenuButton("PAPAN JUARA");
+        // 2. Tombol LEADERBOARD
+        ImageButton btnLeaderboard = new ImageButton("btn_leaderboard.png");
+        btnLeaderboard.setButtonSize(380, 190);
         btnLeaderboard.addActionListener(e -> {
+            playSound("click");
             ScreenManager.getInstance().showScreen("LEADERBOARD");
         });
-        gbc.gridy = 3; 
-        add(btnLeaderboard, gbc);
 
-        // Baris 4: PENGATURAN (Perbaikan: gridy = 4)
-        JButton btnSettings = createMenuButton("PENGATURAN");
+        // 3. Tombol SETTINGS
+        ImageButton btnSettings = new ImageButton("btn_settings.png");
+        btnSettings.setButtonSize(380, 190);
         btnSettings.addActionListener(e -> {
+            playSound("click");
             ScreenManager.getInstance().showScreen("SETTINGS");
         });
+
+        // 4. Tombol KELUAR
+        ImageButton btnExit = new ImageButton("btn_exit.png");
+        btnExit.setButtonSize(390, 200);
+        btnExit.addActionListener(e -> {
+            playSound("click");
+            int confirm = JOptionPane.showConfirmDialog(this, 
+                "Yakin mau istirahat?", "Keluar", JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) System.exit(0);
+        });
+
+        // Masukkan ke panel menu (Berurutan ke bawah)
+        gbcMenu.gridy = 0; centerMenuPanel.add(btnNewGame, gbcMenu);
+        gbcMenu.gridy = 1; centerMenuPanel.add(btnLeaderboard, gbcMenu);
+        gbcMenu.gridy = 2; centerMenuPanel.add(btnSettings, gbcMenu);
+        gbcMenu.gridy = 3; centerMenuPanel.add(btnExit, gbcMenu);
+
+        // Tambahkan Panel Menu ke Layar Utama (CENTER)
+        gbc.gridx = 0; 
+        gbc.gridy = 0;
+        gbc.weightx = 1.0; 
+        gbc.weighty = 1.0;
+        gbc.anchor = GridBagConstraints.CENTER;
+        add(centerMenuPanel, gbc);
+
+        // ========================================================
+        // 2. TOMBOL LANJUTKAN (POJOK KANAN BAWAH)
+        // ========================================================
+        ImageButton btnContinue = new ImageButton("btn_continue.png");
+        btnContinue.setButtonSize(260, 100); // Ukuran Pas
+        btnContinue.addActionListener(e -> {
+            playSound("click");
+            ScreenManager.getInstance().showScreen("PROFILE_SELECT");
+        });
+
+        // Konfigurasi Pojok Kanan Bawah
+        GridBagConstraints gbcCorner = new GridBagConstraints();
+        gbcCorner.gridx = 0;
+        gbcCorner.gridy = 0;
+        gbcCorner.weightx = 1.0;
+        gbcCorner.weighty = 1.0;
+        gbcCorner.anchor = GridBagConstraints.SOUTHEAST; // KUNCI POJOK
+        // Margin dari pinggir layar (Bawah 30, Kanan 30)
+        gbcCorner.insets = new Insets(0, 0, 30, 30); 
         
-        gbc.gridy = 4;
-        add(btnSettings, gbc);
-        gbc.gridy = 4;
-        add(btnSettings, gbc);
+        // Bungkus agar aman
+        JPanel cornerContainer = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        cornerContainer.setOpaque(false);
+        cornerContainer.add(btnContinue);
         
-        // Baris 5: KELUAR (Perbaikan: gridy = 5)
-        JButton btnExit = createMenuButton("KELUAR");
-        btnExit.setBackground(Color.RED);
-        btnExit.addActionListener(e -> System.exit(0));
-        gbc.gridy = 5;
-        add(btnExit, gbc);
-    }
-    // --- AKHIR DARI CONSTRUCTOR ---
-    
-    // --- HELPER BIKIN TOMBOL BIAR RAPI ---
-    private JButton createMenuButton(String text) {
-        JButton btn = new JButton(text);
-        btn.setPreferredSize(new Dimension(300, 60));
-        btn.setFont(GameConfig.FONT_SUBTITLE);
-        btn.setBackground(GameConfig.COLOR_ACCENT);
-        btn.setForeground(Color.WHITE);
-        btn.setFocusPainted(false);
-        return btn;
+        add(cornerContainer, gbcCorner);
     }
 
-    // --- LOGIKA VALIDASI (Master Context 4.1) ---
     @Override
-    public void setVisible(boolean aFlag) {
-        super.setVisible(aFlag);
-        if (aFlag) {
-            // Setiap menu dibuka, cek database
-            // Pastikan userRepo sudah di-init di constructor
-            if (userRepo != null) {
-                List<UserModel> users = userRepo.getAllActiveUsers();
-                
-                // Jika tidak ada user (0), tombol Lanjutkan dimatikan
-                if (users.isEmpty()) {
-                    btnContinue.setEnabled(false);
-                    btnContinue.setText("BELUM ADA DATA");
-                    btnContinue.setBackground(Color.GRAY);
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        if (bgImage != null) {
+            g.drawImage(bgImage, 0, 0, getWidth(), getHeight(), this);
+        } else {
+            // Fallback
+            Graphics2D g2 = (Graphics2D) g;
+            GradientPaint gp = new GradientPaint(0, 0, new Color(135, 206, 235), 0, getHeight(), new Color(34, 139, 34));
+            g2.setPaint(gp);
+            g2.fillRect(0, 0, getWidth(), getHeight());
+        }
+    }
+
+    private void playSound(String name) {
+        try {
+            SoundPlayer.getInstance().playSFX(name + ".wav");
+        } catch (Exception e) {}
+    }
+
+    // ============================================================
+    // CLASS: IMAGE BUTTON (ANIMASI ELASTIS & HD)
+    // ============================================================
+    class ImageButton extends JButton {
+        private Image img;
+        private boolean isHovered = false;
+        
+        // Animasi Variables
+        private float scale = 1.0f;
+        private float targetScale = 1.0f;
+        private Timer animTimer;
+
+        public ImageButton(String filename) {
+            setContentAreaFilled(false);
+            setBorderPainted(false);
+            setFocusPainted(false);
+            setCursor(new Cursor(Cursor.HAND_CURSOR));
+            setAlignmentX(Component.CENTER_ALIGNMENT);
+
+            try {
+                File f = new File("resources/images/" + filename);
+                if (f.exists()) {
+                    img = new ImageIcon(f.getAbsolutePath()).getImage();
                 } else {
-                    btnContinue.setEnabled(true);
-                    btnContinue.setText("LANJUTKAN PETUALANGAN");
-                    btnContinue.setBackground(GameConfig.COLOR_ACCENT);
+                    setText(filename); 
+                    setForeground(Color.RED);
+                    setFont(new Font("Arial", Font.BOLD, 24));
                 }
+            } catch (Exception e) {}
+
+            // Timer Animasi (60 FPS Smooth)
+            animTimer = new Timer(16, e -> updateAnimation());
+            animTimer.start();
+
+            addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseEntered(MouseEvent e) {
+                    isHovered = true;
+                    targetScale = 1.1f; // Membesar 10%
+                }
+
+                @Override
+                public void mouseExited(MouseEvent e) {
+                    isHovered = false;
+                    targetScale = 1.0f; // Kembali normal
+                }
+            });
+        }
+        
+        public void setButtonSize(int width, int height) {
+            setPreferredSize(new Dimension(width, height));
+            // Minimum & Maximum size diset agar layout manager patuh
+            setMinimumSize(new Dimension(width, height));
+            setMaximumSize(new Dimension(width, height));
+        }
+
+        // Logika Animasi Membal (Easing)
+        private void updateAnimation() {
+            if (Math.abs(scale - targetScale) > 0.001f) {
+                scale += (targetScale - scale) * 0.2f; // Smooth transition
+                repaint();
+            }
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            if (img != null) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                // Rendering High Quality agar gambar tidak pecah saat di-resize
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+
+                int baseW = getWidth();
+                int baseH = getHeight();
+
+                // Hitung ukuran animasi
+                int drawW = (int) (baseW * scale);
+                int drawH = (int) (baseH * scale);
+                
+                // Posisi Center Pivot (Agar membesar dari tengah)
+                int x = (baseW - drawW) / 2;
+                int y = (baseH - drawH) / 2;
+
+                // Efek Glow Putih saat Hover
+                if (isHovered) {
+                    g2.setColor(new Color(255, 255, 255, 60));
+                    g2.fillRoundRect(x + 10, y + 10, drawW - 20, drawH - 20, 30, 30);
+                }
+
+                // Gambar Tombol (Dipaksa menyesuaikan ukuran yang kita set)
+                g2.drawImage(img, x, y, drawW, drawH, this);
+                
+                g2.dispose();
+            } else {
+                super.paintComponent(g);
             }
         }
     }
