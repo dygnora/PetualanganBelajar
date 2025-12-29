@@ -28,8 +28,8 @@ public class Main {
                 ScreenManager sm = ScreenManager.getInstance();
 
                 // 3. DAFTARKAN LAYAR UTAMA
-                sm.addScreen("SPLASH", new com.petualanganbelajar.ui.screen.SplashScreen());
-                sm.addScreen("TITLE", new TitleScreen());
+//                sm.addScreen("SPLASH", new com.petualanganbelajar.ui.screen.SplashScreen());
+//                sm.addScreen("TITLE", new TitleScreen());
                 sm.addScreen("MAIN_MENU", new com.petualanganbelajar.ui.screen.MainMenuScreen());
                 sm.addScreen("SETTINGS", new com.petualanganbelajar.ui.screen.SettingsScreen());
                 sm.addScreen("LEADERBOARD", new com.petualanganbelajar.ui.screen.LeaderboardScreen());
