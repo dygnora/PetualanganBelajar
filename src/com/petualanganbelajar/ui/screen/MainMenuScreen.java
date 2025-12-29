@@ -2,6 +2,7 @@ package com.petualanganbelajar.ui.screen;
 
 import com.petualanganbelajar.core.ScreenManager;
 import com.petualanganbelajar.core.SoundPlayer;
+import com.petualanganbelajar.repository.UserRepository;
 
 import javax.swing.*;
 import java.awt.*;
@@ -12,11 +13,55 @@ import java.io.File;
 public class MainMenuScreen extends JPanel {
 
     private Image bgImage;
+    private final UserRepository userRepo;
+    
+    // Simpan referensi tombol lanjutkan agar bisa diupdate
+    private ImageButton btnContinue;
 
     public MainMenuScreen() {
+        this.userRepo = new UserRepository();
         setLayout(new GridBagLayout()); // Layout Utama
         loadAssets();
         initUI();
+    }
+    
+    // --- UPDATE REALTIME SAAT LAYAR MUNCUL ---
+    @Override
+    public void setVisible(boolean aFlag) {
+        super.setVisible(aFlag);
+        if (aFlag) {
+            updateContinueButtonState();
+        }
+    }
+
+    private void updateContinueButtonState() {
+        if (btnContinue == null) return;
+
+        // Cek database terbaru
+        boolean hasUser = !userRepo.getAllActiveUsers().isEmpty();
+        
+        // Update Gambar
+        String imgName = hasUser ? "btn_continue.png" : "btn_not_continue.png";
+        btnContinue.setImage(imgName); // Kita butuh method setImage di class ImageButton
+
+        // Update Logika
+        if (hasUser) {
+            btnContinue.setAnimationEnabled(true);
+            btnContinue.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            // Pastikan listener hanya ada satu (hapus dulu yang lama jika ada)
+            for (var l : btnContinue.getActionListeners()) btnContinue.removeActionListener(l);
+            btnContinue.addActionListener(e -> {
+                playSound("click");
+                ScreenManager.getInstance().showScreen("PROFILE_SELECT");
+            });
+        } else {
+            btnContinue.setAnimationEnabled(false);
+            btnContinue.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+            // Hapus semua action listener agar tidak bisa diklik
+            for (var l : btnContinue.getActionListeners()) btnContinue.removeActionListener(l);
+        }
+        
+        btnContinue.repaint();
     }
 
     private void loadAssets() {
@@ -27,32 +72,38 @@ public class MainMenuScreen extends JPanel {
     }
 
     private void initUI() {
-        GridBagConstraints gbc = new GridBagConstraints();
-
         // ========================================================
-        // 1. PANEL MENU TENGAH (Mulai, Leaderboard, Setting, Keluar)
+        // 1. PANEL MENU TENGAH
         // ========================================================
-        // Kita gunakan GridBagLayout juga di dalam panel ini agar jaraknya RAPAT
         JPanel centerMenuPanel = new JPanel(new GridBagLayout());
         centerMenuPanel.setOpaque(false);
 
         GridBagConstraints gbcMenu = new GridBagConstraints();
         gbcMenu.gridx = 0;
         gbcMenu.anchor = GridBagConstraints.CENTER;
-        
-        // --- Setting Jarak Antar Tombol (Insets) ---
-        // Top, Left, Bottom, Right. Kita beri jarak bawah 10px saja.
-        gbcMenu.insets = new Insets(0, 0, -50, 0); 
 
-        // 1. Tombol MULAI BARU (Paling Besar)
+        // --- TOMBOL 0: LANJUTKAN ---
+        // Inisialisasi awal (state akan diupdate via setVisible nanti)
+        btnContinue = new ImageButton("btn_not_continue.png");
+        btnContinue.setButtonSize(400, 220);
+        
+        gbcMenu.gridy = 0;
+        gbcMenu.insets = new Insets(90, 0, -60, 0); 
+        centerMenuPanel.add(btnContinue, gbcMenu);
+
+        // --- TOMBOL 1: MULAI BARU ---
         ImageButton btnNewGame = new ImageButton("btn_start.png");
-        btnNewGame.setButtonSize(400, 200); // Lebar & Besar
+        btnNewGame.setButtonSize(400, 200); 
         btnNewGame.addActionListener(e -> {
             playSound("click");
             ScreenManager.getInstance().showScreen("PROFILE_CREATE");
         });
-        
-        // 2. Tombol LEADERBOARD
+
+        gbcMenu.gridy = 1;
+        gbcMenu.insets = new Insets(-20, 0, -50, 0); 
+        centerMenuPanel.add(btnNewGame, gbcMenu);
+
+        // --- TOMBOL 2: LEADERBOARD ---
         ImageButton btnLeaderboard = new ImageButton("btn_leaderboard.png");
         btnLeaderboard.setButtonSize(380, 190);
         btnLeaderboard.addActionListener(e -> {
@@ -60,17 +111,25 @@ public class MainMenuScreen extends JPanel {
             ScreenManager.getInstance().showScreen("LEADERBOARD");
         });
 
-        // 3. Tombol SETTINGS
+        gbcMenu.gridy = 2;
+        gbcMenu.insets = new Insets(-20, 0, -55, 0); 
+        centerMenuPanel.add(btnLeaderboard, gbcMenu);
+
+        // --- TOMBOL 3: SETTINGS ---
         ImageButton btnSettings = new ImageButton("btn_settings.png");
-        btnSettings.setButtonSize(380, 190);
+        btnSettings.setButtonSize(400, 250);
         btnSettings.addActionListener(e -> {
             playSound("click");
             ScreenManager.getInstance().showScreen("SETTINGS");
         });
 
-        // 4. Tombol KELUAR
+        gbcMenu.gridy = 3;
+        gbcMenu.insets = new Insets(-55, 0, -30, 0); 
+        centerMenuPanel.add(btnSettings, gbcMenu);
+
+        // --- TOMBOL 4: KELUAR ---
         ImageButton btnExit = new ImageButton("btn_exit.png");
-        btnExit.setButtonSize(390, 200);
+        btnExit.setButtonSize(380, 190);
         btnExit.addActionListener(e -> {
             playSound("click");
             int confirm = JOptionPane.showConfirmDialog(this, 
@@ -78,46 +137,19 @@ public class MainMenuScreen extends JPanel {
             if (confirm == JOptionPane.YES_OPTION) System.exit(0);
         });
 
-        // Masukkan ke panel menu (Berurutan ke bawah)
-        gbcMenu.gridy = 0; centerMenuPanel.add(btnNewGame, gbcMenu);
-        gbcMenu.gridy = 1; centerMenuPanel.add(btnLeaderboard, gbcMenu);
-        gbcMenu.gridy = 2; centerMenuPanel.add(btnSettings, gbcMenu);
-        gbcMenu.gridy = 3; centerMenuPanel.add(btnExit, gbcMenu);
+        gbcMenu.gridy = 4;
+        gbcMenu.insets = new Insets(-30, 0, 0, 0); 
+        centerMenuPanel.add(btnExit, gbcMenu);
 
-        // Tambahkan Panel Menu ke Layar Utama (CENTER)
-        gbc.gridx = 0; 
-        gbc.gridy = 0;
-        gbc.weightx = 1.0; 
-        gbc.weighty = 1.0;
-        gbc.anchor = GridBagConstraints.CENTER;
-        add(centerMenuPanel, gbc);
-
-        // ========================================================
-        // 2. TOMBOL LANJUTKAN (POJOK KANAN BAWAH)
-        // ========================================================
-        ImageButton btnContinue = new ImageButton("btn_continue.png");
-        btnContinue.setButtonSize(260, 100); // Ukuran Pas
-        btnContinue.addActionListener(e -> {
-            playSound("click");
-            ScreenManager.getInstance().showScreen("PROFILE_SELECT");
-        });
-
-        // Konfigurasi Pojok Kanan Bawah
-        GridBagConstraints gbcCorner = new GridBagConstraints();
-        gbcCorner.gridx = 0;
-        gbcCorner.gridy = 0;
-        gbcCorner.weightx = 1.0;
-        gbcCorner.weighty = 1.0;
-        gbcCorner.anchor = GridBagConstraints.SOUTHEAST; // KUNCI POJOK
-        // Margin dari pinggir layar (Bawah 30, Kanan 30)
-        gbcCorner.insets = new Insets(0, 0, 30, 30); 
+        // Tambahkan ke Layar Utama
+        GridBagConstraints gbcMain = new GridBagConstraints();
+        gbcMain.gridx = 0; gbcMain.gridy = 0;
+        gbcMain.weightx = 1.0; gbcMain.weighty = 1.0;
+        gbcMain.anchor = GridBagConstraints.CENTER;
+        add(centerMenuPanel, gbcMain);
         
-        // Bungkus agar aman
-        JPanel cornerContainer = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        cornerContainer.setOpaque(false);
-        cornerContainer.add(btnContinue);
-        
-        add(cornerContainer, gbcCorner);
+        // Panggil update status tombol sekali di awal
+        updateContinueButtonState();
     }
 
     @Override
@@ -126,7 +158,6 @@ public class MainMenuScreen extends JPanel {
         if (bgImage != null) {
             g.drawImage(bgImage, 0, 0, getWidth(), getHeight(), this);
         } else {
-            // Fallback
             Graphics2D g2 = (Graphics2D) g;
             GradientPaint gp = new GradientPaint(0, 0, new Color(135, 206, 235), 0, getHeight(), new Color(34, 139, 34));
             g2.setPaint(gp);
@@ -141,65 +172,74 @@ public class MainMenuScreen extends JPanel {
     }
 
     // ============================================================
-    // CLASS: IMAGE BUTTON (ANIMASI ELASTIS & HD)
+    // CLASS: IMAGE BUTTON
     // ============================================================
     class ImageButton extends JButton {
         private Image img;
-        private boolean isHovered = false;
-        
-        // Animasi Variables
         private float scale = 1.0f;
         private float targetScale = 1.0f;
         private Timer animTimer;
+        private boolean animationEnabled = true;
 
         public ImageButton(String filename) {
+            loadImage(filename); // Refactor load image
+            
             setContentAreaFilled(false);
             setBorderPainted(false);
             setFocusPainted(false);
-            setCursor(new Cursor(Cursor.HAND_CURSOR));
             setAlignmentX(Component.CENTER_ALIGNMENT);
 
-            try {
-                File f = new File("resources/images/" + filename);
-                if (f.exists()) {
-                    img = new ImageIcon(f.getAbsolutePath()).getImage();
-                } else {
-                    setText(filename); 
-                    setForeground(Color.RED);
-                    setFont(new Font("Arial", Font.BOLD, 24));
-                }
-            } catch (Exception e) {}
-
-            // Timer Animasi (60 FPS Smooth)
             animTimer = new Timer(16, e -> updateAnimation());
             animTimer.start();
 
             addMouseListener(new MouseAdapter() {
                 @Override
                 public void mouseEntered(MouseEvent e) {
-                    isHovered = true;
-                    targetScale = 1.1f; // Membesar 10%
+                    if (animationEnabled) targetScale = 1.1f;
                 }
-
                 @Override
                 public void mouseExited(MouseEvent e) {
-                    isHovered = false;
-                    targetScale = 1.0f; // Kembali normal
+                    if (animationEnabled) targetScale = 1.0f;
                 }
             });
         }
         
+        // Method baru untuk ganti gambar secara dinamis
+        public void setImage(String filename) {
+            loadImage(filename);
+            repaint();
+        }
+        
+        private void loadImage(String filename) {
+            try {
+                File f = new File("resources/images/" + filename);
+                if (f.exists()) {
+                    img = new ImageIcon(f.getAbsolutePath()).getImage();
+                    setText(""); // Hapus text jika gambar ada
+                } else {
+                    setText(filename);
+                    setForeground(Color.RED);
+                    setFont(new Font("Arial", Font.BOLD, 24));
+                }
+            } catch (Exception e) {}
+        }
+        
         public void setButtonSize(int width, int height) {
             setPreferredSize(new Dimension(width, height));
-            // Minimum & Maximum size diset agar layout manager patuh
             setMinimumSize(new Dimension(width, height));
             setMaximumSize(new Dimension(width, height));
         }
+        
+        public void setAnimationEnabled(boolean enabled) {
+            this.animationEnabled = enabled;
+            if (!enabled) {
+                targetScale = 1.0f; // Reset scale jika dimatikan
+            }
+        }
 
-        // Logika Animasi Membal (Easing)
         private void updateAnimation() {
             if (Math.abs(scale - targetScale) > 0.001f) {
-                scale += (targetScale - scale) * 0.2f; // Smooth transition
+                scale += (targetScale - scale) * 0.2f; 
                 repaint();
             }
         }
@@ -208,30 +248,17 @@ public class MainMenuScreen extends JPanel {
         protected void paintComponent(Graphics g) {
             if (img != null) {
                 Graphics2D g2 = (Graphics2D) g.create();
-                // Rendering High Quality agar gambar tidak pecah saat di-resize
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
 
                 int baseW = getWidth();
                 int baseH = getHeight();
-
-                // Hitung ukuran animasi
                 int drawW = (int) (baseW * scale);
                 int drawH = (int) (baseH * scale);
-                
-                // Posisi Center Pivot (Agar membesar dari tengah)
                 int x = (baseW - drawW) / 2;
                 int y = (baseH - drawH) / 2;
 
-                // Efek Glow Putih saat Hover
-                if (isHovered) {
-                    g2.setColor(new Color(255, 255, 255, 60));
-                    g2.fillRoundRect(x + 10, y + 10, drawW - 20, drawH - 20, 30, 30);
-                }
-
-                // Gambar Tombol (Dipaksa menyesuaikan ukuran yang kita set)
                 g2.drawImage(img, x, y, drawW, drawH, this);
-                
                 g2.dispose();
             } else {
                 super.paintComponent(g);

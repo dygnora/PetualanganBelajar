@@ -3,7 +3,7 @@ package com.petualanganbelajar.ui.screen;
 import com.petualanganbelajar.core.GameConfig;
 import com.petualanganbelajar.core.GameState;
 import com.petualanganbelajar.core.ScreenManager;
-import com.petualanganbelajar.core.SoundPlayer; 
+import com.petualanganbelajar.core.SoundPlayer;
 import com.petualanganbelajar.model.UserModel;
 import com.petualanganbelajar.repository.UserRepository;
 
@@ -20,83 +20,127 @@ public class ProfileCreateScreen extends JPanel {
 
     private final UserRepository userRepo;
     private final JTextField nameField;
+    private final JTextField ageField;
     private String selectedAvatar = "avatar_1.png";
     
     // UI Components
     private List<CharacterSpotlight> avatarOptions = new ArrayList<>();
     private Image bgImage;
 
-    // Palet Warna Tema "Jurnal Petualang"
+    // --- PALET WARNA ---
     private final Color COLOR_BOARD_BG = new Color(255, 248, 225); // Krem Kertas
     private final Color COLOR_BOARD_BORDER = new Color(139, 69, 19); // Coklat Kayu
     private final Color COLOR_ACCENT = new Color(255, 140, 0);     // Oranye
     private final Color COLOR_TEXT = new Color(93, 64, 55);        // Coklat Tua
+    private final Color COLOR_PAPER_LINE = new Color(173, 216, 230); // Biru Langit Pudar
 
     public ProfileCreateScreen() {
         this.userRepo = new UserRepository();
         setLayout(new GridBagLayout()); 
         loadBackground();
 
-        // Konfigurasi Layout Tengah
+        // Agar panel utama berada di tengah layar
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.gridx = 0;
         gbc.gridy = 0;
         gbc.anchor = GridBagConstraints.CENTER;
 
         // ========================================================
-        // 1. THE ADVENTURE BOARD (PANEL UTAMA)
+        // 1. ADVENTURE BOARD (LEMBAR BIODATA)
         // ========================================================
         AdventureBoard mainBoard = new AdventureBoard();
-        mainBoard.setLayout(new BoxLayout(mainBoard, BoxLayout.Y_AXIS));
-        // Ukuran board sedikit diperlebar agar avatar besar muat dengan lega
+        // Menggunakan GridBagLayout di dalam board agar TIDAK MENUMPUK
+        mainBoard.setLayout(new GridBagLayout()); 
         mainBoard.setPreferredSize(new Dimension(650, 720)); 
-        mainBoard.setBorder(new EmptyBorder(30, 40, 30, 40)); 
+        mainBoard.setBorder(new EmptyBorder(20, 40, 20, 40)); 
 
-        // --- A. HEADER (JUDUL) ---
-        JLabel lblTitle = new JLabel("-- Yuk kenalan dulu! --");
-        lblTitle.setFont(new Font("Comic Sans MS", Font.BOLD, 36));
+        GridBagConstraints boardGbc = new GridBagConstraints();
+        boardGbc.gridx = 0;
+        boardGbc.fill = GridBagConstraints.HORIZONTAL;
+        boardGbc.anchor = GridBagConstraints.CENTER;
+
+        // --- A. HEADER (Baris 0) ---
+        JLabel lblTitle = new JLabel("BIODATA SAYA");
+        lblTitle.setFont(new Font("Comic Sans MS", Font.BOLD, 40));
         lblTitle.setForeground(COLOR_BOARD_BORDER);
-        lblTitle.setAlignmentX(Component.CENTER_ALIGNMENT);
+        lblTitle.setHorizontalAlignment(SwingConstants.CENTER);
         
-        // --- B. INPUT NAMA (STICKER STYLE) ---
-        JPanel namePanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        namePanel.setOpaque(false);
-        namePanel.setMaximumSize(new Dimension(500, 90));
+        boardGbc.gridy = 0;
+        boardGbc.insets = new Insets(20, 0, 40, 0); // Jarak bawah besar agar tidak kena garis
+        mainBoard.add(lblTitle, boardGbc);
         
-        JLabel lblNameTag = new JLabel("Namaku:");
-        lblNameTag.setFont(new Font("Arial", Font.BOLD, 22));
-        lblNameTag.setForeground(COLOR_TEXT);
+        // --- B. FORMULIR BIODATA (Baris 1) ---
+        JPanel formPanel = new JPanel(new GridBagLayout());
+        formPanel.setOpaque(false);
         
-        nameField = new JTextField(12);
-        nameField.setFont(new Font("Comic Sans MS", Font.BOLD, 32)); // Font input diperbesar
-        nameField.setForeground(COLOR_TEXT);
-        nameField.setHorizontalAlignment(JTextField.CENTER);
-        nameField.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createMatteBorder(0, 0, 4, 0, COLOR_ACCENT), // Garis lebih tebal
-                BorderFactory.createEmptyBorder(5, 10, 5, 10)
-        ));
-        nameField.setOpaque(false);
-        nameField.setBackground(new Color(0,0,0,0));
+        GridBagConstraints formGbc = new GridBagConstraints();
+        formGbc.anchor = GridBagConstraints.WEST;
+        formGbc.insets = new Insets(0, 0, 20, 10); // Spasi antar elemen form
 
-        namePanel.add(lblNameTag);
-        namePanel.add(nameField);
+        // Baris 1: Namaku
+        JLabel lblName = new JLabel("Namaku  :");
+        lblName.setFont(new Font("Comic Sans MS", Font.BOLD, 26));
+        lblName.setForeground(COLOR_TEXT);
+        
+        nameField = createTransparentField();
+        nameField.setPreferredSize(new Dimension(300, 40));
+        
+        formGbc.gridx = 0; formGbc.gridy = 0;
+        formPanel.add(lblName, formGbc);
+        
+        formGbc.gridx = 1; 
+        formPanel.add(nameField, formGbc);
 
-        // --- C. PILIHAN AVATAR (SPOTLIGHT STYLE) ---
-        JLabel lblChoose = new JLabel("Pilih Karaktermu:");
+        // Baris 2: Umurku
+        JLabel lblAge = new JLabel("Umurku   :");
+        lblAge.setFont(new Font("Comic Sans MS", Font.BOLD, 26));
+        lblAge.setForeground(COLOR_TEXT);
+        
+        ageField = createTransparentField();
+        ageField.setPreferredSize(new Dimension(100, 40));
+        
+        // Wrapper untuk umur + teks "Tahun"
+        JPanel ageWrapper = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        ageWrapper.setOpaque(false);
+        ageWrapper.add(ageField);
+        
+        JLabel lblYears = new JLabel(" Tahun");
+        lblYears.setFont(new Font("Comic Sans MS", Font.BOLD, 20));
+        lblYears.setForeground(COLOR_TEXT);
+        ageWrapper.add(lblYears);
+        
+        formGbc.gridx = 0; formGbc.gridy = 1;
+        formPanel.add(lblAge, formGbc);
+        
+        formGbc.gridx = 1; 
+        formPanel.add(ageWrapper, formGbc);
+
+        // Masukkan Form ke Board
+        boardGbc.gridy = 1;
+        boardGbc.insets = new Insets(0, 0, 20, 0); // Margin kiri agar agak ke tengah
+        mainBoard.add(formPanel, boardGbc);
+
+
+        // --- C. PILIHAN AVATAR (Baris 2 & 3) ---
+        JLabel lblChoose = new JLabel("Pilih Fotoku:");
         lblChoose.setFont(new Font("Arial", Font.BOLD, 18));
         lblChoose.setForeground(Color.GRAY);
-        lblChoose.setAlignmentX(Component.CENTER_ALIGNMENT);
+        lblChoose.setHorizontalAlignment(SwingConstants.CENTER);
+        
+        boardGbc.gridy = 2;
+        boardGbc.insets = new Insets(-10, 0, 15, 0);
+        boardGbc.anchor = GridBagConstraints.CENTER;
+        mainBoard.add(lblChoose, boardGbc);
 
-        JPanel avatarContainer = new JPanel(new FlowLayout(FlowLayout.CENTER, 30, 5));
+        // Container Avatar
+        JPanel avatarContainer = new JPanel(new FlowLayout(FlowLayout.CENTER, 30, 0));
         avatarContainer.setOpaque(false);
         
-        // Avatar 1
         CharacterSpotlight char1 = new CharacterSpotlight("avatar_1.png", "Si Pemberani");
         char1.addMouseListener(new MouseAdapter() {
             public void mousePressed(MouseEvent e) { selectAvatar(0); }
         });
         
-        // Avatar 2
         CharacterSpotlight char2 = new CharacterSpotlight("avatar_2.png", "Si Pintar");
         char2.addMouseListener(new MouseAdapter() {
             public void mousePressed(MouseEvent e) { selectAvatar(1); }
@@ -107,38 +151,49 @@ public class ProfileCreateScreen extends JPanel {
         avatarContainer.add(char1);
         avatarContainer.add(char2);
         
-        selectAvatar(0); // Default
+        selectAvatar(0); 
 
-        // --- D. TOMBOL (WOODEN BUTTON STYLE) ---
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 25, 0));
+        boardGbc.gridy = 3;
+        boardGbc.weighty = 1.0; // Memberi ruang vertikal agar tidak tertindih
+        boardGbc.fill = GridBagConstraints.BOTH;
+        boardGbc.insets = new Insets(0, 0, 0, 0);
+        mainBoard.add(avatarContainer, boardGbc);
+
+
+        // --- D. TOMBOL (Baris 4) ---
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 30, 0));
         buttonPanel.setOpaque(false);
 
         WoodenButton btnBack = new WoodenButton("KEMBALI", new Color(192, 57, 43));
-        btnBack.setPreferredSize(new Dimension(160, 55));
+        btnBack.setPreferredSize(new Dimension(150, 55));
         btnBack.addActionListener(e -> ScreenManager.getInstance().showScreen("MAIN_MENU"));
 
-        WoodenButton btnSave = new WoodenButton("SIAP BERANGKAT!", new Color(46, 204, 113));
-        btnSave.setPreferredSize(new Dimension(260, 65)); // Tombol lebih besar sedikit
+        WoodenButton btnSave = new WoodenButton("SELESAI!", new Color(46, 204, 113));
+        btnSave.setPreferredSize(new Dimension(220, 65));
         btnSave.setFont(new Font("Arial", Font.BOLD, 24));
         btnSave.addActionListener(e -> saveAndPlay());
 
         buttonPanel.add(btnBack);
         buttonPanel.add(btnSave);
 
-        // --- MENYUSUN ELEMEN ---
-        mainBoard.add(lblTitle);
-        mainBoard.add(Box.createVerticalStrut(15));
-        mainBoard.add(new JSeparator(SwingConstants.HORIZONTAL));
-        mainBoard.add(Box.createVerticalStrut(25));
-        mainBoard.add(namePanel);
-        mainBoard.add(Box.createVerticalStrut(15));
-        mainBoard.add(lblChoose);
-        mainBoard.add(Box.createVerticalStrut(5));
-        mainBoard.add(avatarContainer);
-        mainBoard.add(Box.createVerticalStrut(30)); // Jarak ke tombol
-        mainBoard.add(buttonPanel);
+        boardGbc.gridy = 4;
+        boardGbc.weighty = 0;
+        boardGbc.fill = GridBagConstraints.HORIZONTAL;
+        boardGbc.insets = new Insets(0, 0, 20, 0); // Jarak dari bawah papan
+        mainBoard.add(buttonPanel, boardGbc);
 
         add(mainBoard, gbc);
+    }
+
+    // --- Helper: Input Tanpa Border (Agar menyatu dengan garis background) ---
+    private JTextField createTransparentField() {
+        JTextField field = new JTextField();
+        field.setFont(new Font("Comic Sans MS", Font.BOLD, 28));
+        field.setForeground(new Color(0, 0, 139)); // Biru Tinta
+        // Tidak pakai border, karena kita akan pakai garis background
+        field.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 5));
+        field.setOpaque(false);
+        return field;
     }
 
     // --- LOGIC ---
@@ -153,9 +208,16 @@ public class ProfileCreateScreen extends JPanel {
 
     private void saveAndPlay() {
         String name = nameField.getText().trim();
+        String age = ageField.getText().trim();
+
         if (name.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Nama tidak boleh kosong, Petualang!", "Perhatian", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Isi namamu dulu ya!", "Ups", JOptionPane.WARNING_MESSAGE);
             return;
+        }
+        
+        if (!age.isEmpty() && !age.matches("\\d+")) {
+             JOptionPane.showMessageDialog(this, "Umur harus angka ya!", "Ups", JOptionPane.WARNING_MESSAGE);
+             return;
         }
 
         if (userRepo.createUser(name, selectedAvatar)) {
@@ -167,13 +229,14 @@ public class ProfileCreateScreen extends JPanel {
             if (newUser != null) {
                 GameState.setCurrentUser(newUser);
                 nameField.setText("");
+                ageField.setText("");
                 playSound("success");
-                JOptionPane.showMessageDialog(this, "Selamat Datang, " + newUser.getName() + "!");
+                JOptionPane.showMessageDialog(this, "Halo " + newUser.getName() + "!\nSelamat Datang!");
                 ScreenManager.getInstance().showScreen("MODULE_SELECT");
             }
         } else {
             playSound("error");
-            JOptionPane.showMessageDialog(this, "Buku petualang penuh! Hapus satu dulu.");
+            JOptionPane.showMessageDialog(this, "Profil penuh! Hapus satu dulu.");
         }
     }
     
@@ -202,7 +265,7 @@ public class ProfileCreateScreen extends JPanel {
     }
 
     // ============================================================
-    // CUSTOM 1: ADVENTURE BOARD
+    // CUSTOM 1: ADVENTURE BOARD (KERTAS BERGARIS PRESISI)
     // ============================================================
     class AdventureBoard extends JPanel {
         public AdventureBoard() {
@@ -217,19 +280,40 @@ public class ProfileCreateScreen extends JPanel {
             int w = getWidth();
             int h = getHeight();
 
-            // Bayangan
+            // 1. Bayangan Papan
             g2.setColor(new Color(0, 0, 0, 60));
             g2.fillRoundRect(15, 15, w-20, h-20, 40, 40);
 
-            // Border Kayu
+            // 2. Border Kayu
             g2.setColor(COLOR_BOARD_BORDER);
             g2.fillRoundRect(0, 0, w-10, h-10, 40, 40);
 
-            // Kertas
+            // 3. Kertas Dasar
             g2.setColor(COLOR_BOARD_BG);
             g2.fillRoundRect(10, 10, w-30, h-30, 30, 30);
             
-            // Paku
+            // --- GARIS BUKU TULIS ---
+            g2.setColor(COLOR_PAPER_LINE); 
+            g2.setStroke(new BasicStroke(2));
+            
+            // Logika Garis: 
+            // Header ada di atas. Mulai garis dari Y = 170 ke bawah.
+            // Jarak antar garis (gap) = 60 pixel.
+            // Posisi input field nanti akan "menumpang" di garis ini.
+            
+            int startY = 170; 
+            int gap = 60; 
+            
+            // Gambar garis sampai area avatar
+            for (int y = startY; y < h - 150; y += gap) {
+                g2.drawLine(40, y, w - 40, y);
+            }
+            
+            // Garis Margin Vertikal Merah
+            g2.setColor(new Color(255, 182, 193)); 
+            g2.drawLine(80, 20, 80, h - 30);
+            
+            // 4. Paku di Sudut
             g2.setColor(new Color(160, 82, 45)); 
             int pakuSize = 14;
             g2.fillOval(25, 25, pakuSize, pakuSize);
@@ -243,7 +327,7 @@ public class ProfileCreateScreen extends JPanel {
     }
 
     // ============================================================
-    // CUSTOM 2: CHARACTER SPOTLIGHT (DIPERBESAR)
+    // CUSTOM 2: CHARACTER SPOTLIGHT (SIZE DISESUAIKAN)
     // ============================================================
     class CharacterSpotlight extends JPanel {
         private Image img;
@@ -253,8 +337,8 @@ public class ProfileCreateScreen extends JPanel {
 
         public CharacterSpotlight(String filename, String label) {
             this.label = label;
-            // UKURAN PANEL DIPERBESAR
-            setPreferredSize(new Dimension(200, 260)); 
+            // Ukuran sedikit dikecilkan agar muat di board (200x230)
+            setPreferredSize(new Dimension(200, 230)); 
             setOpaque(false);
             setCursor(new Cursor(Cursor.HAND_CURSOR));
 
@@ -280,62 +364,48 @@ public class ProfileCreateScreen extends JPanel {
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
             int centerX = getWidth() / 2;
-            
-            // UKURAN GAMBAR DIPERBESAR
-            int imgSize = 160; // Sebelumnya mungkin 120
-            int imgY = 15;     // Geser sedikit ke atas
+            int imgSize = 150; // Gambar avatar 150px
+            int imgY = 10;     
 
-            // 1. Sorotan Cahaya
             if (isSelected || isHovered) {
                 Color glowColor = isSelected ? new Color(255, 223, 0, 150) : new Color(255, 255, 200, 100);
                 g2.setColor(glowColor);
-                // Glow mengikuti ukuran baru
-                g2.fillOval(centerX - (imgSize/2) - 15, imgY - 15, imgSize + 30, imgSize + 30);
+                g2.fillOval(centerX - (imgSize/2) - 10, imgY - 10, imgSize + 20, imgSize + 20);
             }
 
-            // 2. Lingkaran Dasar
             g2.setColor(Color.WHITE);
             g2.fillOval(centerX - (imgSize/2), imgY, imgSize, imgSize);
             
-            // 3. Border Lingkaran
             if (isSelected) {
                 g2.setColor(COLOR_ACCENT);
-                g2.setStroke(new BasicStroke(6)); // Border lebih tebal
+                g2.setStroke(new BasicStroke(5)); 
                 g2.drawOval(centerX - (imgSize/2), imgY, imgSize, imgSize);
             }
 
-            // 4. Gambar Avatar
             if (img != null) {
                 Shape oldClip = g2.getClip();
-                g2.setClip(new java.awt.geom.Ellipse2D.Float(centerX - (imgSize/2) + 6, imgY + 6, imgSize - 12, imgSize - 12));
-                g2.drawImage(img, centerX - (imgSize/2) + 6, imgY + 6, imgSize - 12, imgSize - 12, this);
+                g2.setClip(new java.awt.geom.Ellipse2D.Float(centerX - (imgSize/2) + 5, imgY + 5, imgSize - 10, imgSize - 10));
+                g2.drawImage(img, centerX - (imgSize/2) + 5, imgY + 5, imgSize - 10, imgSize - 10, this);
                 g2.setClip(oldClip);
             }
 
-            // 5. Label Nama Karakter
             g2.setColor(isSelected ? COLOR_ACCENT : Color.GRAY);
-            // Font diperbesar sedikit
-            g2.setFont(new Font("Arial", Font.BOLD, 20)); 
+            g2.setFont(new Font("Arial", Font.BOLD, 18)); 
             FontMetrics fm = g2.getFontMetrics();
             int textX = (getWidth() - fm.stringWidth(label)) / 2;
-            g2.drawString(label, textX, getHeight() - 15);
+            g2.drawString(label, textX, getHeight() - 10);
             
-            // 6. Centang (Badge) - Posisi disesuaikan untuk lingkaran besar
             if (isSelected) {
-                int badgeSize = 40;
-                // Posisi badge di pojok kanan bawah lingkaran
-                int badgeX = centerX + 45; 
-                int badgeY = imgY + 115;
-                
+                int badgeSize = 36;
+                int badgeX = centerX + 40; 
+                int badgeY = imgY + 100;
                 g2.setColor(new Color(46, 204, 113));
                 g2.fillOval(badgeX, badgeY, badgeSize, badgeSize);
-                
                 g2.setColor(Color.WHITE);
-                g2.setStroke(new BasicStroke(4));
-                g2.drawLine(badgeX + 8, badgeY + 20, badgeX + 16, badgeY + 28);
-                g2.drawLine(badgeX + 16, badgeY + 28, badgeX + 30, badgeY + 12);
+                g2.setStroke(new BasicStroke(3));
+                g2.drawLine(badgeX + 8, badgeY + 18, badgeX + 14, badgeY + 24);
+                g2.drawLine(badgeX + 14, badgeY + 24, badgeX + 26, badgeY + 12);
             }
-
             g2.dispose();
         }
     }
