@@ -13,9 +13,11 @@ import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
+import java.awt.geom.AffineTransform;
 import java.awt.geom.Ellipse2D;
 import java.io.File;
 import java.util.List;
+import java.net.URL;
 
 public class ProfileSelectionScreen extends JPanel {
 
@@ -43,18 +45,20 @@ public class ProfileSelectionScreen extends JPanel {
         loadAssets();
         
         // Load data awal
-        userList = userRepo.getAllActiveUsers();
-        if (!userList.isEmpty()) selectedIndex = 0;
+        refreshData();
 
         initUI();
     }
 
     private void loadAssets() {
         try {
-            File bg = new File("resources/images/bg_profile_select.png");
-            if (bg.exists()) bgImage = ImageIO.read(bg);
-            File title = new File("resources/images/title_continue.png");
-            if (title.exists()) titleImage = ImageIO.read(title);
+            // Gunakan getResource agar support JAR/Classpath standard
+            if (getClass().getResource("/images/bg_profile_select.png") != null) {
+                bgImage = ImageIO.read(getClass().getResource("/images/bg_profile_select.png"));
+            }
+            if (getClass().getResource("/images/title_continue.png") != null) {
+                titleImage = ImageIO.read(getClass().getResource("/images/title_continue.png"));
+            }
         } catch (Exception ignored) {}
     }
 
@@ -68,8 +72,16 @@ public class ProfileSelectionScreen extends JPanel {
 
     private void refreshData() {
         userList = userRepo.getAllActiveUsers();
-        if (userList.isEmpty()) selectedIndex = -1;
-        else if (selectedIndex >= userList.size()) selectedIndex = 0;
+        
+        // [FIX] Reset logic index agar aman
+        if (userList == null || userList.isEmpty()) {
+            selectedIndex = -1;
+        } else {
+            // Jika index di luar batas (misal habis hapus item terakhir), reset ke 0
+            if (selectedIndex >= userList.size() || selectedIndex < 0) {
+                selectedIndex = 0;
+            }
+        }
         
         if(carouselPanel != null) carouselPanel.repaint();
     }
@@ -79,7 +91,7 @@ public class ProfileSelectionScreen extends JPanel {
         JPanel header = new JPanel(new FlowLayout(FlowLayout.CENTER));
         header.setOpaque(false);
         header.setBorder(new EmptyBorder(-50, 0, 0, 0));
-        header.setPreferredSize(new Dimension(800, 250));
+        header.setPreferredSize(new Dimension(850, 300));
 
         JLabel lblTitle = new JLabel();
         if (titleImage != null) {
@@ -132,7 +144,7 @@ public class ProfileSelectionScreen extends JPanel {
     }
 
     // =========================================================================
-    // INNER CLASS: CAROUSEL PANEL (LOGIC FIX)
+    // INNER CLASS: CAROUSEL PANEL (FIXED LOGIC)
     // =========================================================================
     private class CarouselPanel extends JPanel {
         
@@ -150,13 +162,14 @@ public class ProfileSelectionScreen extends JPanel {
             addMouseListener(new MouseAdapter() {
                 @Override
                 public void mouseClicked(MouseEvent e) {
-                    if (userList.isEmpty()) return;
+                    if (userList == null || userList.isEmpty()) return; // [FIX] Cegah interaksi jika kosong
+                    
                     Point p = e.getPoint();
 
                     // 1. KLIK CARD TENGAH (FOKUS)
                     if (centerCardBounds.contains(p)) {
                         
-                        // FIX UTAMA: Hitung bounds sampah secara real-time
+                        // Hitung bounds sampah secara real-time
                         Rectangle realTrash = calculateTrashBounds();
 
                         if (realTrash.contains(p)) {
@@ -166,10 +179,13 @@ public class ProfileSelectionScreen extends JPanel {
                         } else {
                             // Klik Badan Kartu -> Main
                             playSound("click");
-                            UserModel u = userList.get(selectedIndex);
-                            System.out.println("Login: " + u.getName());
-                            GameState.setCurrentUser(u);
-                            ScreenManager.getInstance().showScreen("MODULE_SELECT");
+                            // [FIX] Validasi index sebelum get()
+                            if (selectedIndex >= 0 && selectedIndex < userList.size()) {
+                                UserModel u = userList.get(selectedIndex);
+                                System.out.println("Login: " + u.getName());
+                                GameState.setCurrentUser(u);
+                                ScreenManager.getInstance().showScreen("MODULE_SELECT");
+                            }
                         }
                     }
                     // 2. NAVIGASI KIRI/KANAN
@@ -187,7 +203,7 @@ public class ProfileSelectionScreen extends JPanel {
             addMouseMotionListener(new MouseMotionAdapter() {
                 @Override
                 public void mouseMoved(MouseEvent e) {
-                    if (userList.isEmpty()) return;
+                    if (userList == null || userList.isEmpty()) return;
                     Point p = e.getPoint();
                     
                     boolean prevHover = isTrashHovered;
@@ -206,8 +222,7 @@ public class ProfileSelectionScreen extends JPanel {
             });
         }
         
-        // --- LOGIC HELPER (THE FIX) ---
-        // Menghitung posisi tombol sampah berdasarkan ukuran panel saat ini
+        // --- LOGIC HELPER ---
         private Rectangle calculateTrashBounds() {
             int w = getWidth();
             int h = getHeight();
@@ -233,30 +248,52 @@ public class ProfileSelectionScreen extends JPanel {
         }
         
         private void rotateLeft() {
+            if (userList.isEmpty()) return;
             selectedIndex--;
             if (selectedIndex < 0) selectedIndex = userList.size() - 1;
             repaint();
         }
         
         private void rotateRight() {
+            if (userList.isEmpty()) return;
             selectedIndex++;
             if (selectedIndex >= userList.size()) selectedIndex = 0;
             repaint();
         }
         
         private void deleteAction() {
+            if (userList == null || userList.isEmpty()) return;
+            
             UserModel u = userList.get(selectedIndex);
             int confirm = JOptionPane.showConfirmDialog(ProfileSelectionScreen.this, 
                 "Hapus " + u.getName() + "?", "Hapus", JOptionPane.YES_NO_OPTION);
+            
             if (confirm == JOptionPane.YES_OPTION) {
                 userRepo.deleteUser(u.getId());
-                refreshData();
+                refreshData(); // [FIX] Refresh data akan otomatis reset selectedIndex
+                
+                // Tambahan: jika kosong setelah hapus, repaint untuk menampilkan pesan kosong
+                repaint();
             }
         }
 
         @Override
         protected void paintComponent(Graphics g) {
             super.paintComponent(g);
+            
+            // [FIX UTAMA] CEGAH CRASH JIKA LIST KOSONG
+            if (userList == null || userList.isEmpty()) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                drawEmptyState(g2, getWidth(), getHeight());
+                g2.dispose();
+                return; // STOP! Jangan lanjut ke kode bawah yang akses .get()
+            }
+
+            // [FIX] Double Check Index (Defense Programming)
+            if (selectedIndex >= userList.size()) selectedIndex = 0;
+            if (selectedIndex < 0) selectedIndex = 0;
+
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
@@ -264,12 +301,6 @@ public class ProfileSelectionScreen extends JPanel {
             int h = getHeight();
             int cy = h / 2;
             int cx = w / 2;
-
-            if (userList.isEmpty()) {
-                drawEmptyState(g2, w, h);
-                g2.dispose();
-                return;
-            }
 
             int leftIdx = (selectedIndex - 1 + userList.size()) % userList.size();
             int rightIdx = (selectedIndex + 1) % userList.size();
@@ -285,6 +316,7 @@ public class ProfileSelectionScreen extends JPanel {
             }
 
             // DRAW CENTER CARD
+            // Sekarang aman karena index sudah divalidasi dan list tidak kosong
             drawCard(g2, userList.get(selectedIndex), cx, cy, 1.15f, 1.0f, true, centerCardBounds);
 
             g2.dispose();
@@ -327,9 +359,9 @@ public class ProfileSelectionScreen extends JPanel {
             // 4. Avatar Image
             try {
                 String fName = (user.getAvatar() == null) ? "default.png" : user.getAvatar();
-                File f = new File("resources/images/" + fName);
-                if (f.exists()) {
-                    Image img = new ImageIcon(f.getAbsolutePath()).getImage();
+                URL url = getClass().getResource("/images/" + fName);
+                if (url != null) {
+                    Image img = new ImageIcon(url).getImage();
                     g2.setClip(new Ellipse2D.Float(cxCircle+5, cyCircle+5, circleSize-10, circleSize-10));
                     g2.drawImage(img, cxCircle+5, cyCircle+5, circleSize-10, circleSize-10, null);
                     g2.setClip(null);

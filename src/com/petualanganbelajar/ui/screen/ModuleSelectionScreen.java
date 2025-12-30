@@ -6,7 +6,6 @@ import com.petualanganbelajar.core.ScreenManager;
 import com.petualanganbelajar.core.SoundPlayer;
 import com.petualanganbelajar.model.ModuleModel;
 import com.petualanganbelajar.model.UserModel;
-import com.petualanganbelajar.repository.ModuleRepository;
 import com.petualanganbelajar.repository.ProgressRepository;
 
 import javax.swing.*;
@@ -14,7 +13,8 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.io.File;
+import java.net.URL;
+import java.util.ArrayList;
 import java.util.List;
 
 public class ModuleSelectionScreen extends JPanel {
@@ -45,6 +45,9 @@ public class ModuleSelectionScreen extends JPanel {
     private JButton btnPrev;
     private JButton btnNext;
 
+    private SoundPlayer soundPlayer = SoundPlayer.getInstance();
+    private ProgressRepository progressRepo = new ProgressRepository();
+
     public ModuleSelectionScreen() {
         setLayout(new BorderLayout());
         
@@ -55,7 +58,6 @@ public class ModuleSelectionScreen extends JPanel {
         topBar.setOpaque(false); 
         topBar.setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 20));
 
-        // Profile Badge (Left)
         JPanel profileBadge = new BadgePanel(new Color(101, 67, 33)); 
         lblUserInfo = new JLabel("Player: -");
         lblUserInfo.setFont(new Font("Comic Sans MS", Font.BOLD, 20));
@@ -63,7 +65,6 @@ public class ModuleSelectionScreen extends JPanel {
         profileBadge.add(lblUserInfo);
         topBar.add(profileBadge, BorderLayout.WEST);
 
-        // Score Badge (Right)
         JPanel scoreBadge = new BadgePanel(new Color(255, 193, 7)); 
         lblTotalScore = new JLabel("Total Skor: 0");
         lblTotalScore.setFont(new Font("Comic Sans MS", Font.BOLD, 20));
@@ -82,7 +83,6 @@ public class ModuleSelectionScreen extends JPanel {
 
         GridBagConstraints gbc = new GridBagConstraints();
 
-        // A. PREV BUTTON
         btnPrev = createAnimatedImageButton("btn_prev.png", "<"); 
         btnPrev.addActionListener(e -> navigate(-1));
 
@@ -91,20 +91,18 @@ public class ModuleSelectionScreen extends JPanel {
         gbc.anchor = GridBagConstraints.CENTER; gbc.fill = GridBagConstraints.NONE;
         centerContainer.add(btnPrev, gbc);
 
-        // B. MODULE CARD (CENTER) - Paper Style
         cardPanel = new PaperCardPanel(); 
         cardPanel.setLayout(new BoxLayout(cardPanel, BoxLayout.Y_AXIS));
         cardPanel.setBorder(new EmptyBorder(25, 35, 25, 35));
 
-        // Module Title
         lblModuleName = new JLabel("MODUL", SwingConstants.CENTER);
         lblModuleName.setFont(new Font("Comic Sans MS", Font.BOLD, 48));
-        lblModuleName.setForeground(new Color(93, 64, 55)); // Dark Brown
+        lblModuleName.setForeground(new Color(93, 64, 55)); 
         lblModuleName.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         txtModuleDesc = new JTextArea("Deskripsi modul...");
         txtModuleDesc.setFont(new Font("Comic Sans MS", Font.PLAIN, 18)); 
-        txtModuleDesc.setForeground(new Color(117, 117, 117)); // Soft Grey
+        txtModuleDesc.setForeground(new Color(117, 117, 117)); 
         txtModuleDesc.setWrapStyleWord(true);
         txtModuleDesc.setLineWrap(true);
         txtModuleDesc.setOpaque(false);
@@ -113,29 +111,19 @@ public class ModuleSelectionScreen extends JPanel {
         txtModuleDesc.setAlignmentX(Component.CENTER_ALIGNMENT);
         txtModuleDesc.setMaximumSize(new Dimension(450, 60));
         
-        // --- LEVEL BUTTONS PANEL ---
         levelButtonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 25, 0));
         levelButtonPanel.setOpaque(false);
         levelButtonPanel.setMaximumSize(new Dimension(500, 100)); 
 
-        // Layout Assembly
         cardPanel.add(Box.createVerticalGlue());
-        
-        // "Pin" graphic placeholder
-        JLabel pinLabel = new JLabel("📌"); 
-        pinLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 24));
-        pinLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        // cardPanel.add(pinLabel); 
-        
         cardPanel.add(lblModuleName);
         cardPanel.add(Box.createVerticalStrut(10));
         cardPanel.add(txtModuleDesc);
         cardPanel.add(Box.createVerticalStrut(25));
         
-        // "Select Level" Label
         JLabel lblPilih = new JLabel("Pilih Level");
         lblPilih.setFont(new Font("Comic Sans MS", Font.BOLD, 16));
-        lblPilih.setForeground(new Color(141, 110, 99)); // Light Brown
+        lblPilih.setForeground(new Color(141, 110, 99)); 
         lblPilih.setAlignmentX(Component.CENTER_ALIGNMENT);
         cardPanel.add(lblPilih);
         cardPanel.add(Box.createVerticalStrut(10));
@@ -146,7 +134,6 @@ public class ModuleSelectionScreen extends JPanel {
         gbc.gridx = 1; gbc.gridy = 0; gbc.weightx = 0.7;
         centerContainer.add(cardPanel, gbc);
 
-        // C. NEXT BUTTON
         btnNext = createAnimatedImageButton("btn_next.png", ">");
         btnNext.addActionListener(e -> navigate(1));
 
@@ -168,7 +155,6 @@ public class ModuleSelectionScreen extends JPanel {
         add(footer, BorderLayout.SOUTH);
     }
 
-    // --- PAINT COMPONENT (BACKGROUND) ---
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
@@ -178,12 +164,10 @@ public class ModuleSelectionScreen extends JPanel {
             g.setColor(GameConfig.COLOR_BG);
             g.fillRect(0, 0, getWidth(), getHeight());
         }
-        // Overlay tipis untuk efek paper pop
         g.setColor(new Color(0, 0, 0, 30));
         g.fillRect(0, 0, getWidth(), getHeight());
     }
 
-    // --- LOGIC ---
     @Override
     public void setVisible(boolean aFlag) {
         super.setVisible(aFlag);
@@ -194,8 +178,12 @@ public class ModuleSelectionScreen extends JPanel {
     }
 
     private void loadModules() {
-        ModuleRepository repo = new ModuleRepository();
-        this.modules = repo.getAllModules();
+        this.modules = new ArrayList<>();
+        modules.add(new ModuleModel(1, "ANGKA", "Belajar Berhitung"));
+        modules.add(new ModuleModel(2, "HURUF", "Membaca & Menulis"));
+        modules.add(new ModuleModel(3, "WARNA", "Mengenal Warna"));
+        modules.add(new ModuleModel(4, "BENTUK", "Geometri Dasar"));
+        
         this.currentIndex = 0;
         updateCarousel(); 
     }
@@ -213,56 +201,48 @@ public class ModuleSelectionScreen extends JPanel {
 
         ModuleModel mod = modules.get(currentIndex);
         
-        // Update teks judul dan deskripsi
         lblModuleName.setText(mod.getName().toUpperCase()); 
         txtModuleDesc.setText(mod.getDescription());
         
-        // Load background sesuai modul
         loadBackgroundImage(mod.getId());
-        
-        // Update tombol level (warna mengikuti modul)
         updateLevelButtons(mod);
         
         repaint();
     }
     
-    // Helper untuk mendapatkan warna berdasarkan ID modul
     private Color getModuleColor(int modId) {
         switch (modId % 4) {
-            case 1: return new Color(255, 193, 7);   // Amber/Yellow
-            case 2: return new Color(255, 105, 180); // Hot Pink
-            case 3: return new Color(255, 69, 0);    // Red Orange
-            case 0: return new Color(50, 205, 50);   // Lime Green
+            case 1: return new Color(255, 193, 7);   
+            case 2: return new Color(255, 105, 180); 
+            case 3: return new Color(255, 69, 0);    
+            case 0: return new Color(50, 205, 50);   
             default: return GameConfig.COLOR_PRIMARY;
         }
     }
 
-    // --- LOGIC LEVEL BUTTONS ---
     private void updateLevelButtons(ModuleModel module) {
         levelButtonPanel.removeAll();
         
+        // FIX ERROR 4: GameState statis
         UserModel user = GameState.getCurrentUser();
-        ProgressRepository progressRepo = new ProgressRepository();
         
         int highestUnlocked = 1; 
         if (user != null) {
             highestUnlocked = progressRepo.getHighestLevelUnlocked(user.getId(), module.getId());
         }
 
-        // Ambil warna tema untuk modul saat ini
         Color themeColor = getModuleColor(module.getId());
 
-        // Create 3 Simple, tactile buttons dengan warna tema modul
         for (int i = 1; i <= 3; i++) {
             int lvlNum = i;
             boolean isUnlocked = (lvlNum <= highestUnlocked);
             
-            // Pass themeColor ke constructor LevelButton
             LevelButton btnLvl = new LevelButton(lvlNum, isUnlocked, themeColor);
             btnLvl.addActionListener(e -> {
                 if (isUnlocked) {
                     playSound("click");
-                    ScreenManager.getInstance().showStory(module, lvlNum);
+                    // FIX ERROR 5: Gunakan method bawaan ScreenManager
+                    ScreenManager.getInstance().showGame(module, lvlNum);
                 } else {
                     playSound("error"); 
                 }
@@ -277,11 +257,10 @@ public class ModuleSelectionScreen extends JPanel {
     
     private void loadBackgroundImage(int modId) {
         String filename = "bg_module_" + modId + ".png";
-        String filePath = "resources/images/" + filename; 
         try {
-            File imgFile = new File(filePath);
-            if (imgFile.exists()) {
-                currentBgImage = new ImageIcon(filePath).getImage();
+            URL url = getClass().getResource("/images/" + filename);
+            if (url != null) {
+                currentBgImage = new ImageIcon(url).getImage();
             } else {
                 currentBgImage = null; 
             }
@@ -291,31 +270,31 @@ public class ModuleSelectionScreen extends JPanel {
     }
     
     private void refreshUserInfo() {
+        // FIX ERROR 6: GameState statis
         UserModel u = GameState.getCurrentUser();
         if (u != null) {
             lblUserInfo.setText("Player: " + u.getName());
-            ProgressRepository progressRepo = new ProgressRepository();
-            int totalScore = progressRepo.calculateTotalScore(u.getName());
+            int totalScore = progressRepo.calculateTotalScore(u.getId());
             lblTotalScore.setText("Total Skor: " + totalScore);
         }
     }
 
     private void playSound(String name) {
-        try { SoundPlayer.getInstance().playSFX(name + ".wav"); } catch (Exception ignored) {}
+        try { soundPlayer.playSFX(name + ".wav"); } catch (Exception ignored) {}
     }
 
     private JButton createAnimatedImageButton(String filename, String fallbackText) {
         JButton btn = new JButton();
-        String path = "resources/images/" + filename;
-        File file = new File(path);
         
         int normalSize = 130;
         ImageIcon normalIcon = null;
         ImageIcon hoverIcon = null;
 
-        if (file.exists()) {
+        URL url = getClass().getResource("/images/" + filename);
+
+        if (url != null) {
             try {
-                ImageIcon raw = new ImageIcon(path);
+                ImageIcon raw = new ImageIcon(url);
                 normalIcon = new ImageIcon(raw.getImage().getScaledInstance(110, 110, Image.SCALE_SMOOTH));
                 hoverIcon = new ImageIcon(raw.getImage().getScaledInstance(130, 130, Image.SCALE_SMOOTH));
                 btn.setIcon(normalIcon);
@@ -343,23 +322,20 @@ public class ModuleSelectionScreen extends JPanel {
         });
         return btn;
     }
-
-    // =========================================================
-    // NEW: TACTILE LEVEL BUTTON (Simple, Clean, Integrated)
-    // =========================================================
+    
     class LevelButton extends JButton {
         private int level;
         private boolean isUnlocked;
-        private Color themeColor; // Warna tema tombol
+        private Color themeColor;
         private boolean hover;
         private boolean pressed;
 
         public LevelButton(int level, boolean unlocked, Color themeColor) {
             this.level = level;
             this.isUnlocked = unlocked;
-            this.themeColor = themeColor; // Simpan warna tema
+            this.themeColor = themeColor;
             
-            setPreferredSize(new Dimension(80, 80)); // Compact size
+            setPreferredSize(new Dimension(80, 80)); 
             setContentAreaFilled(false);
             setFocusPainted(false);
             setBorderPainted(false);
@@ -378,31 +354,18 @@ public class ModuleSelectionScreen extends JPanel {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             
-            int w = getWidth();
-            int h = getHeight();
-            int offset = pressed ? 2 : 0; 
+            int w = getWidth(); int h = getHeight(); int offset = pressed ? 2 : 0; 
             
             if (isUnlocked) {
-                // Gunakan themeColor yang dipass dari konstruktor
                 Color base = themeColor; 
                 Color dark = themeColor.darker(); 
-                if (hover) base = themeColor.brighter(); // Lighter on hover
+                if (hover) base = themeColor.brighter();
                 
-                // Shadow
-                g2.setColor(new Color(0,0,0,30));
-                g2.fillRoundRect(5, 8, w-10, h-10, 20, 20);
+                g2.setColor(new Color(0,0,0,30)); g2.fillRoundRect(5, 8, w-10, h-10, 20, 20); 
+                g2.setColor(dark); g2.fillRoundRect(5, 5+offset, w-10, h-10-offset, 20, 20); 
+                g2.setColor(base); g2.fillRoundRect(5, 0+offset, w-10, h-10, 20, 20); 
                 
-                // 3D Depth
-                g2.setColor(dark);
-                g2.fillRoundRect(5, 5+offset, w-10, h-10-offset, 20, 20);
-                
-                // Face
-                g2.setColor(base);
-                g2.fillRoundRect(5, 0+offset, w-10, h-10, 20, 20);
-                
-                // Text (Simple White)
-                g2.setColor(Color.WHITE);
-                g2.setFont(new Font("Comic Sans MS", Font.BOLD, 36));
+                g2.setColor(Color.WHITE); g2.setFont(new Font("Comic Sans MS", Font.BOLD, 36));
                 FontMetrics fm = g2.getFontMetrics();
                 String text = String.valueOf(level);
                 int x = (w - fm.stringWidth(text))/2;
@@ -410,13 +373,8 @@ public class ModuleSelectionScreen extends JPanel {
                 g2.drawString(text, x, y);
                 
             } else {
-                // Locked (Subtle Grey)
-                g2.setColor(new Color(224, 224, 224)); // Very light grey
-                g2.fillRoundRect(5, 0, w-10, h-10, 20, 20);
-                
-                // Lock Icon
-                g2.setColor(new Color(189, 189, 189)); // Darker grey for icon
-                g2.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 28));
+                g2.setColor(new Color(224, 224, 224)); g2.fillRoundRect(5, 0, w-10, h-10, 20, 20);
+                g2.setColor(new Color(189, 189, 189)); g2.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 28));
                 FontMetrics fm = g2.getFontMetrics();
                 String text = "🔒";
                 int x = (w - fm.stringWidth(text))/2;
@@ -427,41 +385,19 @@ public class ModuleSelectionScreen extends JPanel {
         }
     }
 
-    // =========================================================
-    // NEW: PAPER CARD PANEL (Organic Feel)
-    // =========================================================
     class PaperCardPanel extends JPanel {
-        public PaperCardPanel() { 
-            setOpaque(false); 
-        }
-        
+        public PaperCardPanel() { setOpaque(false); }
         @Override protected void paintComponent(Graphics g) {
             super.paintComponent(g);
             Graphics2D g2 = (Graphics2D) g;
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            
-            int w = getWidth(); 
-            int h = getHeight();
-            int arc = 20; // Smaller radius for "paper" feel
-            
-            // Soft Shadow
-            g2.setColor(new Color(0,0,0,20));
-            g2.fillRoundRect(5, 5, w-10, h-10, arc, arc);
-            
-            // Paper Body (Cosmic Latte - Warm White)
-            g2.setColor(new Color(255, 248, 225)); 
-            g2.fillRoundRect(0, 0, w-5, h-5, arc, arc);
-            
-            // Subtle Organic Border
-            g2.setColor(new Color(215, 204, 200)); // Very light brown/grey
-            g2.setStroke(new BasicStroke(1)); 
-            g2.drawRoundRect(0, 0, w-5, h-5, arc, arc);
+            int w = getWidth(); int h = getHeight(); int arc = 20; 
+            g2.setColor(new Color(0,0,0,20)); g2.fillRoundRect(5, 5, w-10, h-10, arc, arc); 
+            g2.setColor(new Color(255, 248, 225)); g2.fillRoundRect(0, 0, w-5, h-5, arc, arc); 
+            g2.setColor(new Color(215, 204, 200)); g2.setStroke(new BasicStroke(1)); 
+            g2.drawRoundRect(0, 0, w-5, h-5, arc, arc); 
         }
     }
-
-    // =========================================================
-    // BUTTONS & BADGES (Kept Clean)
-    // =========================================================
 
     class FunnyButton extends JButton {
         private Color baseColor; private Timer animTimer; private float scale = 1.0f; private float targetScale = 1.0f; 
@@ -469,7 +405,7 @@ public class ModuleSelectionScreen extends JPanel {
             super(text); this.baseColor = color;
             setFont(new Font("Comic Sans MS", Font.BOLD, 22)); setForeground(Color.WHITE);
             setFocusPainted(false); setBorderPainted(false); setContentAreaFilled(false); setCursor(new Cursor(Cursor.HAND_CURSOR));
-            setPreferredSize(new Dimension(300, 70)); // Smaller Footer Button
+            setPreferredSize(new Dimension(300, 70));
             animTimer = new Timer(16, e -> {
                 if (Math.abs(targetScale - scale) > 0.01f) { scale += (targetScale - scale) * 0.2f; repaint(); } 
                 else { scale = targetScale; ((Timer)e.getSource()).stop(); repaint(); }
@@ -485,12 +421,9 @@ public class ModuleSelectionScreen extends JPanel {
             int w = getWidth(); int h = getHeight(); int centerX = w / 2; int centerY = h / 2;
             g2.translate(centerX, centerY); g2.scale(scale, scale); g2.translate(-centerX, -centerY);
             int btnWidth = 280; int btnHeight = 55; int x = (w - btnWidth) / 2; int y = (h - btnHeight) / 2;
-            
-            // Simpler shadow and body for cleaner look
             g2.setColor(new Color(0,0,0,30)); g2.fillRoundRect(x+3, y+5, btnWidth, btnHeight, 40, 40);
             g2.setColor(baseColor); g2.fillRoundRect(x, y, btnWidth, btnHeight, 40, 40);
             g2.setColor(new Color(255,255,255,50)); g2.fillRoundRect(x+5, y+5, btnWidth-10, btnHeight/2, 30, 30);
-            
             g2.setColor(Color.WHITE);
             FontMetrics fm = g2.getFontMetrics();
             Rectangle stringBounds = fm.getStringBounds(getText(), g2).getBounds();

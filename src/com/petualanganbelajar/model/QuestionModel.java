@@ -1,14 +1,10 @@
 package com.petualanganbelajar.model;
 
-/**
- * Model data untuk merepresentasikan satu soal.
- * Sekarang mendukung berbagai tipe gameplay (Pilihan Ganda, Typing, dll).
- */
 public class QuestionModel {
     private int id;
     private int moduleId;
     private int level;
-    private String questionType; // [BARU] Tipe Soal: CHOICE, TYPING, CLICK, KEYPAD, SEQUENCE
+    private QuestionType questionType; // UBAH: String -> QuestionType
     private String questionText;
     private String questionImage;
     private String questionAudio;
@@ -17,14 +13,13 @@ public class QuestionModel {
     private String optionC;
     private String correctAnswer;
 
-    // Constructor Lengkap
-    public QuestionModel(int id, int moduleId, int level, String questionType, 
-                         String questionText, String questionImage, String questionAudio,
-                         String optionA, String optionB, String optionC, String correctAnswer) {
+    public QuestionModel(int id, int moduleId, int level, QuestionType questionType, String questionText, 
+                         String questionImage, String questionAudio, String optionA, String optionB, 
+                         String optionC, String correctAnswer) {
         this.id = id;
         this.moduleId = moduleId;
         this.level = level;
-        this.questionType = questionType; // Simpan tipe soal
+        this.questionType = questionType;
         this.questionText = questionText;
         this.questionImage = questionImage;
         this.questionAudio = questionAudio;
@@ -34,11 +29,14 @@ public class QuestionModel {
         this.correctAnswer = correctAnswer;
     }
 
-    // --- GETTERS ---
+    // Getter & Setter
     public int getId() { return id; }
     public int getModuleId() { return moduleId; }
     public int getLevel() { return level; }
-    public String getQuestionType() { return questionType; } // Getter baru
+    
+    // UBAH Getter ini
+    public QuestionType getQuestionType() { return questionType; }
+
     public String getQuestionText() { return questionText; }
     public String getQuestionImage() { return questionImage; }
     public String getQuestionAudio() { return questionAudio; }
@@ -47,9 +45,7 @@ public class QuestionModel {
     public String getOptionC() { return optionC; }
     public String getCorrectAnswer() { return correctAnswer; }
 
-    /**
-     * Cek jawaban user. Mengabaikan huruf besar/kecil.
-     */
+    // Logic Cek Jawaban sederhana
     public boolean checkAnswer(String answer) {
         return correctAnswer != null && correctAnswer.equalsIgnoreCase(answer);
     }

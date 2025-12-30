@@ -1,56 +1,62 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Main.java to edit this template
- */
 package com.petualanganbelajar;
-import com.petualanganbelajar.ui.screen.TitleScreen;
+
 import com.petualanganbelajar.core.ScreenManager;
-import com.petualanganbelajar.db.DatabaseInitializer;
-import com.petualanganbelajar.db.DatabaseConnection;
+import com.petualanganbelajar.db.DatabaseInitializer; 
+import com.petualanganbelajar.ui.screen.*;
+import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
-/**
- *
- * @author DD
- */
+
 public class Main {
+    
+    private static final boolean DEBUG_SKIP_SPLASH = true;
 
-    /**
-     * @param args the command line arguments
-     */
+
     public static void main(String[] args) {
+
+        DatabaseInitializer.createTables();
+
         SwingUtilities.invokeLater(() -> {
-            try {
-                // 1. Init Database
-                DatabaseInitializer.createTables();
 
-                // 2. Init UI Manager
-                ScreenManager.init();
-                ScreenManager sm = ScreenManager.getInstance();
-
-                // 3. DAFTARKAN LAYAR UTAMA
-//                sm.addScreen("SPLASH", new com.petualanganbelajar.ui.screen.SplashScreen());
-//                sm.addScreen("TITLE", new TitleScreen());
-                sm.addScreen("MAIN_MENU", new com.petualanganbelajar.ui.screen.MainMenuScreen());
-                sm.addScreen("SETTINGS", new com.petualanganbelajar.ui.screen.SettingsScreen());
-                sm.addScreen("LEADERBOARD", new com.petualanganbelajar.ui.screen.LeaderboardScreen());
-                sm.addScreen("PROFILE_CREATE", new com.petualanganbelajar.ui.screen.ProfileCreateScreen());
-                sm.addScreen("PROFILE_SELECT", new com.petualanganbelajar.ui.screen.ProfileSelectionScreen());
-                sm.addScreen("MODULE_SELECT", new com.petualanganbelajar.ui.screen.ModuleSelectionScreen());
-                
-                // 4. Tampilkan Layar Judul
-                sm.showScreen("SPLASH");
-                sm.showWindow();
-
-                System.out.println("--- APLIKASI DIMULAI ---");
-                
-                // Shutdown Hook
-                Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                    DatabaseConnection.close();
-                }));
-                
-            } catch (Exception e) {
-                e.printStackTrace();
+            if (DEBUG_SKIP_SPLASH) {
+                launchMainApp();
+            } else {
+                SplashScreen splash = new SplashScreen(() -> {
+                    launchMainApp();
+                });
+                splash.setVisible(true);
             }
+
         });
+    }
+
+
+    private static void launchMainApp() {
+        ScreenManager sm = ScreenManager.getInstance();
+
+        // --- DAFTAR SCREEN ---
+        // sm.addScreen("TITLE", new TitleScreen()); // Opsional jika belum dipakai
+        sm.addScreen("MAIN_MENU", new MainMenuScreen());
+        sm.addScreen("PROFILE_SELECT", new ProfileSelectionScreen());
+        sm.addScreen("PROFILE_CREATE", new ProfileCreateScreen());
+        sm.addScreen("MODULE_SELECT", new ModuleSelectionScreen());
+        sm.addScreen("LEADERBOARD", new LeaderboardScreen());
+        sm.addScreen("GAME", new GameScreen());
+        sm.addScreen("SETTINGS", new SettingsScreen()); 
+
+        // --- SETUP FRAME ---
+        JFrame frame = new JFrame("Petualangan Belajar");
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        
+        frame.setUndecorated(true); 
+        frame.setExtendedState(JFrame.MAXIMIZED_BOTH); 
+        frame.setLocationRelativeTo(null); 
+        
+        frame.add(sm.getMainPanel());
+
+        // Mulai dari Title Screen (Pastikan TitleScreen sudah dibuat/di-uncomment jika ingin dipakai)
+        // Jika TitleScreen belum siap, ganti ke "MAIN_MENU" atau "PROFILE_SELECT" sementara
+        sm.showScreen("TITLE"); 
+
+        frame.setVisible(true);
     }
 }

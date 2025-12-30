@@ -1,17 +1,25 @@
 package com.petualanganbelajar.core;
 
 import javax.sound.sampled.*;
-import java.io.File;
 import java.io.IOException;
+import java.net.URL;
 
+/**
+ * SoundPlayer (Safe & Optimized Version)
+ * - Support file JAR (menggunakan getResource)
+ * - Mencegah Memory Leak (Auto-close SFX)
+ * - Singleton Pattern
+ */
 public class SoundPlayer {
+
     private static SoundPlayer instance;
-    private Clip bgmClip;
-    private boolean isMuted = false;
+    private Clip bgmClip; // Untuk musik latar (Looping)
     
-    // Simpan volume terakhir (0.0f - 1.0f)
-    private float currentBGMVolume = 0.8f;
-    private float currentSFXVolume = 1.0f;
+    private boolean isMuted = false;
+    private float currentVolume = 0.0f; // Default Normal (0.0f = 100%)
+
+    // Private constructor (Singleton)
+    private SoundPlayer() {}
 
     public static SoundPlayer getInstance() {
         if (instance == null) {
@@ -20,86 +28,101 @@ public class SoundPlayer {
         return instance;
     }
 
-    // --- LOGIKA VOLUME CONTROL (GAIN) ---
-    private void setClipVolume(Clip clip, float volume) {
-        if (clip == null) return;
-        try {
-            FloatControl gainControl = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
-            // Konversi skala 0-1 ke Decibel (-80db s/d 6db)
-            float db = (float) (Math.log(Math.max(volume, 0.0001f)) / Math.log(10.0) * 20.0);
-            gainControl.setValue(db);
-        } catch (Exception e) {
-            // Beberapa klip audio pendek mungkin tidak support control, abaikan saja
-        }
-    }
-
-    public void setBGMVolume(int volumePercent) {
-        this.currentBGMVolume = volumePercent / 100.0f;
-        if (bgmClip != null && bgmClip.isRunning() && !isMuted) {
-            setClipVolume(bgmClip, currentBGMVolume);
-        }
-    }
-
-    public void setSFXVolume(int volumePercent) {
-        this.currentSFXVolume = volumePercent / 100.0f;
-    }
-
-    // --- PLAY SFX ---
-    public void playSFX(String filename) {
-        if (isMuted) return;
-        try {
-            File soundFile = new File("resources/audio/" + filename);
-            if (!soundFile.exists()) return;
-
-            AudioInputStream audioIn = AudioSystem.getAudioInputStream(soundFile);
-            Clip clip = AudioSystem.getClip();
-            clip.open(audioIn);
-            
-            // Set Volume SFX sebelum main
-            setClipVolume(clip, currentSFXVolume);
-            
-            clip.start();
-        } catch (Exception e) {
-            System.err.println("Gagal SFX: " + e.getMessage());
-        }
-    }
-
-    // --- PLAY BGM ---
+    // --- PLAY BACKGROUND MUSIC (BGM) ---
     public void playBGM(String filename) {
+        // 1. Stop musik sebelumnya biar gak tumpuk
         stopBGM();
-        if (isMuted) return;
-        try {
-            File soundFile = new File("resources/audio/" + filename);
-            if (!soundFile.exists()) return;
 
-            AudioInputStream audioIn = AudioSystem.getAudioInputStream(soundFile);
+        if (isMuted) return;
+
+        try {
+            // 2. Load File dengan cara aman untuk JAR
+            URL url = getClass().getResource("/audio/" + filename);
+            if (url == null) {
+                System.err.println("Audio tidak ditemukan: " + filename);
+                return;
+            }
+
+            AudioInputStream audioIn = AudioSystem.getAudioInputStream(url);
             bgmClip = AudioSystem.getClip();
             bgmClip.open(audioIn);
             
-            // Set Volume BGM
-            setClipVolume(bgmClip, currentBGMVolume);
-            
+            // Atur Volume
+            setClipVolume(bgmClip);
+
+            // Loop selamanya
             bgmClip.loop(Clip.LOOP_CONTINUOUSLY);
             bgmClip.start();
-        } catch (Exception e) {
-            System.err.println("Gagal BGM: " + e.getMessage());
+
+        } catch (UnsupportedAudioFileException | IOException | LineUnavailableException e) {
+            System.err.println("Gagal main BGM: " + e.getMessage());
         }
     }
 
     public void stopBGM() {
         if (bgmClip != null) {
             if (bgmClip.isRunning()) bgmClip.stop();
-            bgmClip.close();
+            bgmClip.close(); // Penting: Lepas resource
+            bgmClip = null;
+        }
+    }
+
+    // --- PLAY SOUND EFFECT (SFX) ---
+    public void playSFX(String filename) {
+        if (isMuted) return;
+
+        try {
+            URL url = getClass().getResource("/audio/" + filename);
+            if (url == null) {
+                // Silent fail agar game tidak crash cuma gara-gara suara hilang
+                System.err.println("SFX missing: " + filename);
+                return;
+            }
+
+            AudioInputStream audioIn = AudioSystem.getAudioInputStream(url);
+            Clip clip = AudioSystem.getClip();
+            clip.open(audioIn);
+            
+            setClipVolume(clip);
+
+            // 3. RESOURCE MANAGEMENT: Auto-close saat selesai
+            clip.addLineListener(event -> {
+                if (event.getType() == LineEvent.Type.STOP) {
+                    clip.close(); // Buang dari memori
+                }
+            });
+
+            clip.start();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    // --- VOLUME CONTROL ---
+    private void setClipVolume(Clip clip) {
+        if (clip == null) return;
+        try {
+            FloatControl gainControl = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
+            // Mengurangi volume (angka negatif = lebih kecil)
+            // Range biasanya -80.0f sampai 6.0f
+            gainControl.setValue(currentVolume); 
+        } catch (Exception e) {
+            // Tidak semua audio support Master Gain, abaikan saja
         }
     }
 
     public void setMute(boolean mute) {
         this.isMuted = mute;
-        if (mute) {
-            stopBGM();
-        } else {
-            // Jika punya lagu tema utama, bisa dipanggil ulang di sini
-            // playBGM("theme.wav"); 
+        if (mute) stopBGM();
+    }
+    
+    // Set volume global (misal dari Settings)
+    // val: -80.0f (Mute) sampai 6.0f (Max)
+    public void setVolume(float val) {
+        this.currentVolume = val;
+        if (bgmClip != null && bgmClip.isOpen()) {
+            setClipVolume(bgmClip);
         }
     }
 }

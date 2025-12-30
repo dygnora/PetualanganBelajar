@@ -12,6 +12,7 @@ import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
+import java.net.URL;
 import java.util.List;
 
 public class LeaderboardScreen extends JPanel {
@@ -52,120 +53,48 @@ public class LeaderboardScreen extends JPanel {
     public void setVisible(boolean flag) {
         super.setVisible(flag);
         if (flag) {
-            refreshData();
+            loadDataAsync(); // UBAH: Panggil versi Async
         }
     }
 
-    private void loadAssets() {
-        try {
-            File bg = new File("resources/images/bg_menu.png");
-            if (bg.exists()) bgImage = new ImageIcon(bg.getAbsolutePath()).getImage();
-
-            File title = new File("resources/images/title_papan_juara.png");
-            if (title.exists()) titleImage = new ImageIcon(title.getAbsolutePath()).getImage();
-        } catch (Exception ignored) {}
-    }
-
-    private void initUI() {
-        // --- 1. HEADER (NORTH) ---
-        // Tinggi header dikurangi agar tidak memakan tempat list
-        add(createHeader(), BorderLayout.NORTH);
-
-        // --- 2. CENTER CONTENT (WRAPPER) ---
-        JPanel contentWrapper = new JPanel(new BorderLayout());
-        contentWrapper.setOpaque(false);
-        contentWrapper.setBorder(new EmptyBorder(0, 20, 0, 20)); // Margin kiri kanan
-
-        // A. STATS PANEL (NORTH of Center)
-        contentWrapper.add(createStatsPanel(), BorderLayout.NORTH);
-
-        // B. LIST CONTAINER (CENTER of Center)
-        JPanel listWrapper = new JPanel(new GridBagLayout());
-        listWrapper.setOpaque(false);
-
-        listContainer = new JPanel();
-        listContainer.setLayout(new BoxLayout(listContainer, BoxLayout.Y_AXIS));
-        listContainer.setOpaque(false);
-        
-        JScrollPane scroll = new JScrollPane(listContainer);
-        scroll.setOpaque(false);
-        scroll.getViewport().setOpaque(false);
-        scroll.setBorder(null);
-        scroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-        scroll.getVerticalScrollBar().setUnitIncrement(20);
-        scroll.getVerticalScrollBar().setUI(new ModernScrollBar());
-        
-        // Ukuran ScrollPane disesuaikan agar proporsional
-        scroll.setPreferredSize(new Dimension(650, 320)); 
-
-        listWrapper.add(scroll); 
-        contentWrapper.add(listWrapper, BorderLayout.CENTER);
-        
-        add(contentWrapper, BorderLayout.CENTER);
-
-        // --- 3. FOOTER (SOUTH) ---
-        add(createFooter(), BorderLayout.SOUTH);
-    }
-
-    private JPanel createHeader() {
-        JPanel header = new JPanel(new BorderLayout());
-        header.setOpaque(false);
-        // Tinggi Header 140px cukup untuk logo + margin
-        header.setPreferredSize(new Dimension(800, 200));
-        header.setBorder(new EmptyBorder(-80, 0, -100, 0));
-
-        JLabel titleLabel = new JLabel();
-        titleLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        
-        if (titleImage != null) {
-            // Logo disesuaikan agar masuk ke tinggi 140px (misal tinggi logo 110px)
-            Image scaled = titleImage.getScaledInstance(400, 240, Image.SCALE_SMOOTH);
-            titleLabel.setIcon(new ImageIcon(scaled));
-        } else {
-            titleLabel.setText("PAPAN JUARA");
-            titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 48));
-            titleLabel.setForeground(COL_TEXT_WHITE);
-        }
-        header.add(titleLabel, BorderLayout.CENTER);
-        return header;
-    }
-
-    private JPanel createStatsPanel() {
-        JPanel stats = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 0));
-        stats.setOpaque(false);
-        stats.setPreferredSize(new Dimension(800, 80));
-        stats.setBorder(new EmptyBorder(0, 0, 10, 0));
-
-        totalCard = new StatCard("Total Pemain", "0", "👥", COL_ACCENT_BLUE);
-        avgCard = new StatCard("Rata-rata", "0 XP", "⭐", COL_ACCENT_GOLD);
-        topCard = new StatCard("Tertinggi", "0 XP", "🔥", COL_ACCENT_RED);
-
-        stats.add(totalCard);
-        stats.add(avgCard);
-        stats.add(topCard);
-        
-        return stats;
-    }
-
-    private JPanel createFooter() {
-        JPanel p = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        p.setOpaque(false);
-        p.setPreferredSize(new Dimension(800, 80)); // Footer jangan terlalu tinggi
-        p.setBorder(new EmptyBorder(10, 0, 0, 0));
-        
-        GradientButton btnBack = new GradientButton("KEMBALI", new Color(220, 38, 38), new Color(153, 27, 27));
-        btnBack.addActionListener(e -> { 
-            playSound("click"); 
-            ScreenManager.getInstance().showScreen("MAIN_MENU"); 
-        });
-
-        p.add(btnBack);
-        return p;
-    }
-
-    private void refreshData() {
+    // --- LOGIC BARU: SWING WORKER (ANTI-LAG) ---
+    private void loadDataAsync() {
+        // 1. Tampilkan status loading sementara
         listContainer.removeAll();
-        List<LeaderboardEntry> data = repo.getTopScores();
+        
+        JLabel loading = new JLabel("Sedang memuat data...", SwingConstants.CENTER);
+        loading.setFont(new Font("Segoe UI", Font.ITALIC, 18));
+        loading.setForeground(COL_TEXT_GRAY);
+        loading.setAlignmentX(Component.CENTER_ALIGNMENT);
+        
+        listContainer.add(Box.createVerticalStrut(50));
+        listContainer.add(loading);
+        listContainer.revalidate();
+        listContainer.repaint();
+
+        // 2. Jalankan Worker di Background
+        new SwingWorker<List<LeaderboardEntry>, Void>() {
+            @Override
+            protected List<LeaderboardEntry> doInBackground() throws Exception {
+                // Proses berat (Database) terjadi di sini
+                return repo.getTopScores();
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    // Update UI setelah data siap
+                    updateUIWithData(get());
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }.execute();
+    }
+
+    // Method ini isinya sama persis dengan refreshData() lama Anda
+    private void updateUIWithData(List<LeaderboardEntry> data) {
+        listContainer.removeAll(); // Hapus loading text
 
         if (data.isEmpty()) {
             updateStats(0, 0, 0);
@@ -200,6 +129,110 @@ public class LeaderboardScreen extends JPanel {
         listContainer.repaint();
     }
 
+    private void loadAssets() {
+        try {
+            // UBAH KE GETRESOURCE AGAR SUPPORT JAR (Sesuai Audit)
+            URL bgUrl = getClass().getResource("/images/bg_menu.png");
+            if (bgUrl != null) bgImage = new ImageIcon(bgUrl).getImage();
+
+            URL titleUrl = getClass().getResource("/images/title_papan_juara.png");
+            if (titleUrl != null) titleImage = new ImageIcon(titleUrl).getImage();
+        } catch (Exception ignored) {}
+    }
+
+    private void initUI() {
+        // --- 1. HEADER (NORTH) ---
+        add(createHeader(), BorderLayout.NORTH);
+
+        // --- 2. CENTER CONTENT (WRAPPER) ---
+        JPanel contentWrapper = new JPanel(new BorderLayout());
+        contentWrapper.setOpaque(false);
+        contentWrapper.setBorder(new EmptyBorder(0, 20, 0, 20)); 
+
+        // A. STATS PANEL (NORTH of Center)
+        contentWrapper.add(createStatsPanel(), BorderLayout.NORTH);
+
+        // B. LIST CONTAINER (CENTER of Center)
+        JPanel listWrapper = new JPanel(new GridBagLayout());
+        listWrapper.setOpaque(false);
+
+        listContainer = new JPanel();
+        listContainer.setLayout(new BoxLayout(listContainer, BoxLayout.Y_AXIS));
+        listContainer.setOpaque(false);
+        
+        JScrollPane scroll = new JScrollPane(listContainer);
+        scroll.setOpaque(false);
+        scroll.getViewport().setOpaque(false);
+        scroll.setBorder(null);
+        scroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        scroll.getVerticalScrollBar().setUnitIncrement(20);
+        scroll.getVerticalScrollBar().setUI(new ModernScrollBar());
+        
+        scroll.setPreferredSize(new Dimension(650, 320)); 
+
+        listWrapper.add(scroll); 
+        contentWrapper.add(listWrapper, BorderLayout.CENTER);
+        
+        add(contentWrapper, BorderLayout.CENTER);
+
+        // --- 3. FOOTER (SOUTH) ---
+        add(createFooter(), BorderLayout.SOUTH);
+    }
+
+    private JPanel createHeader() {
+        JPanel header = new JPanel(new BorderLayout());
+        header.setOpaque(false);
+        header.setPreferredSize(new Dimension(800, 200));
+        header.setBorder(new EmptyBorder(-80, 0, -100, 0));
+
+        JLabel titleLabel = new JLabel();
+        titleLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        
+        if (titleImage != null) {
+            Image scaled = titleImage.getScaledInstance(400, 240, Image.SCALE_SMOOTH);
+            titleLabel.setIcon(new ImageIcon(scaled));
+        } else {
+            titleLabel.setText("PAPAN JUARA");
+            titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 48));
+            titleLabel.setForeground(COL_TEXT_WHITE);
+        }
+        header.add(titleLabel, BorderLayout.CENTER);
+        return header;
+    }
+
+    private JPanel createStatsPanel() {
+        JPanel stats = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 0));
+        stats.setOpaque(false);
+        stats.setPreferredSize(new Dimension(800, 80));
+        stats.setBorder(new EmptyBorder(0, 0, 10, 0));
+
+        totalCard = new StatCard("Total Pemain", "0", "👥", COL_ACCENT_BLUE);
+        avgCard = new StatCard("Rata-rata", "0 XP", "⭐", COL_ACCENT_GOLD);
+        topCard = new StatCard("Tertinggi", "0 XP", "🔥", COL_ACCENT_RED);
+
+        stats.add(totalCard);
+        stats.add(avgCard);
+        stats.add(topCard);
+        
+        return stats;
+    }
+
+    private JPanel createFooter() {
+        JPanel p = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        p.setOpaque(false);
+        p.setPreferredSize(new Dimension(800, 80));
+        p.setBorder(new EmptyBorder(10, 0, 0, 0));
+        
+        GradientButton btnBack = new GradientButton("KEMBALI", new Color(220, 38, 38), new Color(153, 27, 27));
+        btnBack.addActionListener(e -> { 
+            playSound("click"); 
+            ScreenManager.getInstance().showScreen("MAIN_MENU"); 
+        });
+
+        p.add(btnBack);
+        return p;
+    }
+
     private void updateStats(int total, int avg, int max) {
         if (totalCard != null) totalCard.setValue(String.valueOf(total));
         if (avgCard != null) avgCard.setValue(avg + " XP");
@@ -227,7 +260,7 @@ public class LeaderboardScreen extends JPanel {
     }
 
     // ============================================================
-    // COMPONENTS
+    // COMPONENTS (Inner Classes - Tidak Diubah)
     // ============================================================
 
     class StatCard extends JPanel {
@@ -289,8 +322,9 @@ public class LeaderboardScreen extends JPanel {
             setMaximumSize(new Dimension(600, 85));
             
             try {
-                File f = new File("resources/images/" + avatarFile);
-                if(f.exists()) avatar = new ImageIcon(f.getAbsolutePath()).getImage();
+                // FIXED: Resource Loading
+                URL url = getClass().getResource("/images/" + avatarFile);
+                if(url != null) avatar = new ImageIcon(url).getImage();
             } catch(Exception ignored) {}
 
             addMouseListener(new MouseAdapter() {
@@ -404,6 +438,12 @@ public class LeaderboardScreen extends JPanel {
         @Override protected void configureScrollBarColors() { thumbColor = new Color(255,255,255,50); trackColor = new Color(0,0,0,0); }
         @Override protected JButton createDecreaseButton(int orientation) { return createZeroButton(); }
         @Override protected JButton createIncreaseButton(int orientation) { return createZeroButton(); }
+        @Override protected void paintThumb(Graphics g, JComponent c, Rectangle thumbBounds) {
+            Graphics2D g2 = (Graphics2D) g;
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(thumbColor);
+            g2.fillRoundRect(thumbBounds.x, thumbBounds.y, thumbBounds.width, thumbBounds.height, 10, 10);
+        }
         private JButton createZeroButton() { JButton j=new JButton(); j.setPreferredSize(new Dimension(0,0)); return j; }
     }
 }

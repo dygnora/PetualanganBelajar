@@ -1,68 +1,153 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package com.petualanganbelajar.ui.screen;
-import com.petualanganbelajar.core.GameConfig;
+
 import com.petualanganbelajar.core.ScreenManager;
+import com.petualanganbelajar.core.SoundPlayer;
+
 import javax.swing.*;
 import java.awt.*;
-/**
- *
- * @author DD
- */
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.net.URL;
+
 public class TitleScreen extends JPanel {
+
+    // Aset Gambar
+    private Image bgImage;
+    private Image titleImage;
+    
+    // Variabel untuk efek kedip teks
+    private boolean showText = true; 
+    private Timer blinkTimer;
+
     public TitleScreen() {
-        // 1. Setup Layout & Warna
-        setLayout(new GridBagLayout()); // Agar komponen ada di tengah
-        setBackground(GameConfig.COLOR_BG);
-        
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(10, 10, 10, 10); // Jarak antar elemen
-        gbc.gridx = 0;
-        
-        // 2. Judul Game
-        JLabel titleLabel = new JLabel(GameConfig.GAME_TITLE);
-        titleLabel.setFont(GameConfig.FONT_TITLE);
-        titleLabel.setForeground(GameConfig.COLOR_PRIMARY);
-        
-        gbc.gridy = 0;
-        add(titleLabel, gbc);
-        
-        // 3. Sub-Judul
-        JLabel subLabel = new JLabel("Belajar Angka, Huruf & Warna");
-        subLabel.setFont(GameConfig.FONT_SUBTITLE);
-        subLabel.setForeground(GameConfig.COLOR_ACCENT);
-        
-        gbc.gridy = 1;
-        add(subLabel, gbc);
-        
-        // 4. Spacer (Jarak Kosong)
-        gbc.gridy = 2;
-        add(Box.createVerticalStrut(50), gbc);
-        
-        // 5. Tombol MULAI
-        JButton startButton = new JButton("MULAI PETUALANGAN");
-        startButton.setFont(GameConfig.FONT_SUBTITLE);
-        startButton.setBackground(GameConfig.COLOR_PRIMARY);
-        startButton.setForeground(Color.WHITE);
-        startButton.setFocusPainted(false);
-        startButton.setPreferredSize(new Dimension(300, 60));
-        
-        // Aksi Tombol (Nanti kita arahkan ke Pilih Profil)
-        startButton.addActionListener(e -> {
-            ScreenManager.getInstance().showScreen("MAIN_MENU");
+        setLayout(null); 
+        setFocusable(true); 
+        loadAssets();
+
+        // 1. Timer untuk Efek Teks Berkedip
+        blinkTimer = new Timer(700, e -> {
+            showText = !showText;
+            repaint(); 
         });
+        blinkTimer.start();
+
+        // 2. Deteksi KLIK MOUSE
+        addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                enterGame();
+            }
+        });
+
+        // 3. Deteksi TOMBOL KEYBOARD
+        addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyPressed(KeyEvent e) {
+                enterGame();
+            }
+        });
+    }
+
+    private void loadAssets() {
+        try {
+            // Load Background
+            URL bgUrl = getClass().getResource("/images/bg_title.png");
+            if (bgUrl != null) {
+                bgImage = new ImageIcon(bgUrl).getImage();
+            } else {
+                URL altUrl = getClass().getResource("/images/bg_menu.png");
+                if (altUrl != null) bgImage = new ImageIcon(altUrl).getImage();
+            }
+
+            // Load Title Logo
+            URL titleUrl = getClass().getResource("/images/title_menu.png");
+            if (titleUrl != null) {
+                titleImage = new ImageIcon(titleUrl).getImage();
+            } else {
+                URL altTitle = getClass().getResource("/images/title_papan_juara.png");
+                if (altTitle != null) titleImage = new ImageIcon(altTitle).getImage();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void enterGame() {
+        if (blinkTimer.isRunning()) blinkTimer.stop();
+        try { SoundPlayer.getInstance().playSFX("click.wav"); } catch (Exception ignored) {}
+        ScreenManager.getInstance().showScreen("MAIN_MENU");
+    }
+
+    @Override
+    public void addNotify() {
+        super.addNotify();
+        requestFocusInWindow(); 
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        Graphics2D g2 = (Graphics2D) g;
         
-        gbc.gridy = 3;
-        add(startButton, gbc);
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+        int w = getWidth();
+        int h = getHeight();
+
+        // 1. GAMBAR BACKGROUND
+        if (bgImage != null) {
+            g2.drawImage(bgImage, 0, 0, w, h, this);
+        } else {
+            g2.setColor(new Color(135, 206, 235)); 
+            g2.fillRect(0, 0, w, h);
+        }
+
+        // 2. GAMBAR JUDUL (LOGO) - POSISI DIPERBAIKI
+        if (titleImage != null) {
+            // Ukuran Logo
+            int logoWidth = 800; 
+            int logoHeight = 500; 
+            
+            // Posisi Tengah Horizontal
+            int x = (w - logoWidth) / 2;
+            
+            // [PERUBAHAN DISINI]
+            // Sebelumnya h / 6 (sekitar 128px), sekarang kita set fixed 40px dari atas
+            // Agar logo naik ke atas dan tidak menutupi tengah layar
+            int y = 40; 
+
+            g2.drawImage(titleImage, x, y, logoWidth, logoHeight, this);
+        }
+
+        // 3. TEKS "TEKAN APAPUN"
+        if (showText) {
+            String text = "Tekan apapun untuk masuk ke dalam game";
+            
+            g2.setFont(new Font("Comic Sans MS", Font.BOLD, 28));
+            FontMetrics fm = g2.getFontMetrics();
+            
+            int textX = (w - fm.stringWidth(text)) / 2;
+            int textY = h - 80; // Posisi di bawah
+
+            // A. Stroke/Outline Hitam (Agar terbaca jelas di background warna-warni)
+            // Kita gambar teks hitam bergeser sedikit ke segala arah untuk efek outline tebal
+            g2.setColor(Color.BLACK);
+            g2.drawString(text, textX - 2, textY - 2);
+            g2.drawString(text, textX - 2, textY + 2);
+            g2.drawString(text, textX + 2, textY - 2);
+            g2.drawString(text, textX + 2, textY + 2);
+
+            // B. Teks Utama Putih
+            g2.setColor(Color.WHITE);
+            g2.drawString(text, textX, textY);
+        }
         
-        // 6. Footer (Credit)
-        JLabel footerLabel = new JLabel("Versi 1.0 - (c) 2025 Petualangan Belajar");
-        footerLabel.setFont(new Font("Arial", Font.ITALIC, 12));
-        
-        gbc.gridy = 4;
-        gbc.insets = new Insets(50, 10, 10, 10);
-        add(footerLabel, gbc);
+        // 4. Versi Kecil
+        g2.setFont(new Font("Arial", Font.PLAIN, 12));
+        g2.setColor(new Color(255, 255, 255, 120));
+        g2.drawString("v1.0", w - 40, h - 10);
     }
 }
