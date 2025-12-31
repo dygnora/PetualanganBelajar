@@ -207,8 +207,8 @@ public class LeaderboardScreen extends JPanel {
         stats.setBorder(new EmptyBorder(0, 0, 10, 0));
 
         totalCard = new StatCard("Total Pemain", "0", "👥", COL_ACCENT_BLUE);
-        avgCard = new StatCard("Rata-rata", "0 XP", "⭐", COL_ACCENT_GOLD);
-        topCard = new StatCard("Tertinggi", "0 XP", "🔥", COL_ACCENT_RED);
+        avgCard = new StatCard("Rata-rata", "0 Poin", "⭐", COL_ACCENT_GOLD);
+        topCard = new StatCard("Tertinggi", "0 Poin", "🔥", COL_ACCENT_RED);
 
         stats.add(totalCard);
         stats.add(avgCard);
@@ -235,8 +235,8 @@ public class LeaderboardScreen extends JPanel {
 
     private void updateStats(int total, int avg, int max) {
         if (totalCard != null) totalCard.setValue(String.valueOf(total));
-        if (avgCard != null) avgCard.setValue(avg + " XP");
-        if (topCard != null) topCard.setValue(max + " XP");
+        if (avgCard != null) avgCard.setValue(avg + " Poin");
+        if (topCard != null) topCard.setValue(max + " Poin");
     }
 
     @Override
@@ -373,7 +373,7 @@ public class LeaderboardScreen extends JPanel {
 
             g2.setColor(COL_ACCENT_GOLD); 
             g2.setFont(new Font("Segoe UI", Font.BOLD, 22));
-            String s = score + " XP";
+            String s = score + " Poin";
             g2.drawString(s, w - g2.getFontMetrics().stringWidth(s) - 30, 50);
 
             if (rank == 1) {
