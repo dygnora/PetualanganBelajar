@@ -50,6 +50,35 @@ public class TitleScreen extends JPanel {
         });
     }
 
+    // [FIX 1] Gunakan addNotify untuk memutar musik saat PERTAMA KALI muncul
+    @Override
+    public void addNotify() {
+        super.addNotify();
+        requestFocusInWindow(); 
+        
+        // Panggil Musik di sini agar pasti bunyi setelah Splash Screen
+        playTitleMusic();
+    }
+
+    // [FIX 2] Tetap gunakan setVisible jika user kembali dari menu lain ke Title
+    @Override
+    public void setVisible(boolean aFlag) {
+        super.setVisible(aFlag);
+        if (aFlag) {
+            playTitleMusic();
+        }
+    }
+    
+    // Helper method biar tidak tulis ulang kodenya
+    private void playTitleMusic() {
+        try {
+            // Karena SoundPlayer sudah anti-reset, aman dipanggil berkali-kali
+            SoundPlayer.getInstance().playBGM("bgm_menu.wav");
+        } catch (Exception e) {
+            System.err.println("Gagal memutar BGM Title: " + e.getMessage());
+        }
+    }
+
     private void loadAssets() {
         try {
             // Load Background
@@ -81,12 +110,6 @@ public class TitleScreen extends JPanel {
     }
 
     @Override
-    public void addNotify() {
-        super.addNotify();
-        requestFocusInWindow(); 
-    }
-
-    @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
         Graphics2D g2 = (Graphics2D) g;
@@ -105,19 +128,13 @@ public class TitleScreen extends JPanel {
             g2.fillRect(0, 0, w, h);
         }
 
-        // 2. GAMBAR JUDUL (LOGO) - POSISI DIPERBAIKI
+        // 2. GAMBAR JUDUL (LOGO)
         if (titleImage != null) {
-            // Ukuran Logo
-            int logoWidth = 800; 
-            int logoHeight = 500; 
+            int logoWidth = 850; 
+            int logoHeight = 550; 
             
-            // Posisi Tengah Horizontal
             int x = (w - logoWidth) / 2;
-            
-            // [PERUBAHAN DISINI]
-            // Sebelumnya h / 6 (sekitar 128px), sekarang kita set fixed 40px dari atas
-            // Agar logo naik ke atas dan tidak menutupi tengah layar
-            int y = 40; 
+            int y = -20; 
 
             g2.drawImage(titleImage, x, y, logoWidth, logoHeight, this);
         }
@@ -130,17 +147,16 @@ public class TitleScreen extends JPanel {
             FontMetrics fm = g2.getFontMetrics();
             
             int textX = (w - fm.stringWidth(text)) / 2;
-            int textY = h - 80; // Posisi di bawah
+            int textY = h - 80; 
 
-            // A. Stroke/Outline Hitam (Agar terbaca jelas di background warna-warni)
-            // Kita gambar teks hitam bergeser sedikit ke segala arah untuk efek outline tebal
+            // Stroke/Outline Hitam
             g2.setColor(Color.BLACK);
             g2.drawString(text, textX - 2, textY - 2);
             g2.drawString(text, textX - 2, textY + 2);
             g2.drawString(text, textX + 2, textY - 2);
             g2.drawString(text, textX + 2, textY + 2);
 
-            // B. Teks Utama Putih
+            // Teks Utama Putih
             g2.setColor(Color.WHITE);
             g2.drawString(text, textX, textY);
         }

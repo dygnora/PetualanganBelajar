@@ -1,131 +1,69 @@
 package com.petualanganbelajar.ui.component;
 
+import com.petualanganbelajar.util.StyleConstants;
+
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 
-public class ModernAnswerButton extends JButton {
-    private Color baseColor;
-    private boolean hover;
-    private boolean pressed;
+/**
+ * MODERN ANSWER BUTTON (Refactored)
+ * Tombol jawaban dengan gaya modern: Sudut sangat bulat (Radius 40) dan support gambar.
+ * Mewarisi AbstractGameButton untuk logika interaksi standar.
+ */
+public class ModernAnswerButton extends AbstractGameButton {
 
     public ModernAnswerButton(String text, Color color) {
-        super(text);
-        this.baseColor = color;
+        super(text, color);
         
-        setFont(new Font("Comic Sans MS", Font.BOLD, 26));
-        setForeground(Color.WHITE);
-        
-        setFocusPainted(false);
-        setBorderPainted(false);
-        setContentAreaFilled(false);
-        setCursor(new Cursor(Cursor.HAND_CURSOR));
-        setAlignmentX(CENTER_ALIGNMENT);
-        
-        // Ukuran standar
+        // Konfigurasi spesifik tombol ini
         setPreferredSize(new Dimension(220, 70));
-        setMaximumSize(new Dimension(250, 70));
-
-        addMouseListener(new MouseAdapter() {
-            public void mouseEntered(MouseEvent e) { 
-                hover = true; 
-                repaint(); 
-            }
-            public void mouseExited(MouseEvent e) { 
-                hover = false; 
-                pressed = false;
-                repaint(); 
-            }
-            public void mousePressed(MouseEvent e) {
-                pressed = true;
-                repaint();
-            }
-            public void mouseReleased(MouseEvent e) {
-                pressed = false;
-                repaint();
-            }
-        });
+        setMaximumSize(new Dimension(250, 70)); // Agar tidak melar di BoxLayout
+        setFont(new Font("Comic Sans MS", Font.BOLD, 26)); 
     }
 
     @Override
-    protected void paintComponent(Graphics g) {
-        Graphics2D g2 = (Graphics2D) g.create();
-        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-        int w = getWidth();
-        int h = getHeight();
-
-        // LOGIKA ANIMASI: SCALE
-        int margin = hover ? 0 : 4; 
-        if (pressed) margin = 6;
-
-        int drawW = w - (margin * 2);
-        int drawH = h - (margin * 2);
-
-        // Warna Dinamis
-        Color paintColor = baseColor;
+    protected void drawShape(Graphics2D g2, int w, int h, Color c, int yOffset) {
+        // Radius sudut yang lebih besar untuk gaya modern
+        int arcSize = 40;
         
-        // Jika Tombol Punya Icon (Isinya Gambar), backgroundnya Putih saja biar bersih
-        if (getIcon() != null) {
-            paintColor = Color.WHITE;
-        } else {
-            // Jika Teks, gunakan warna baseColor (Biru/Hijau/dll)
-            if (hover && !pressed) paintColor = baseColor.brighter();
-            else if (pressed) paintColor = baseColor.darker();
+        // Logika Warna Khusus:
+        // Jika tombol ini berisi Icon (Gambar), background-nya Putih bersih
+        Color paintColor = (getIcon() != null) ? Color.WHITE : c;
+
+        // 1. Shadow (Bayangan)
+        // Hanya gambar shadow jika tombol sedang tidak ditekan dalam
+        if (yOffset == 0) { 
+            g2.setColor(StyleConstants.COL_SHADOW);
+            // Bayangan sedikit lebih turun (+4) dan masuk ke dalam (+2)
+            g2.fillRoundRect(2, 4, w - 4, h - 4, arcSize, arcSize);
         }
 
-        // 1. Shadow
-        if (!pressed) {
-            g2.setColor(new Color(0, 0, 0, 30));
-            g2.fillRoundRect(margin + 2, margin + 4, drawW, drawH, 40, 40);
-        }
-
-        // 2. Body Tombol
+        // 2. Body Tombol Utama
         g2.setColor(paintColor);
-        g2.fillRoundRect(margin, margin, drawW, drawH, 40, 40);
-        
-        // Jika ini tombol gambar, kasih border tipis biar kelihatan batasnya
+        g2.fillRoundRect(0, yOffset, w, h - 4, arcSize, arcSize);
+
+        // 3. Border / Stroke
+        // Jika ini tombol gambar, beri border abu-abu agar batasnya jelas
         if (getIcon() != null) {
             g2.setColor(new Color(200, 200, 200));
             g2.setStroke(new BasicStroke(3));
-            g2.drawRoundRect(margin, margin, drawW, drawH, 40, 40);
-        }
-
-        // 3. RENDER KONTEN (ICON ATAU TEKS?)
-        Icon icon = getIcon();
-        
-        if (icon != null) {
-            // --- GAMBAR ICON ---
-            int ix = (w - icon.getIconWidth()) / 2;
-            int iy = (h - icon.getIconHeight()) / 2;
-            icon.paintIcon(this, g2, ix, iy);
-        } 
-        else {
-            // --- GAMBAR TEKS ---
-            g2.setColor(Color.WHITE);
-            g2.setFont(getFont());
-            FontMetrics fm = g2.getFontMetrics();
+            g2.drawRoundRect(0, yOffset, w, h - 4, arcSize, arcSize);
             
-            String txt = getText();
-            // Fallback jika text null
-            if (txt == null) txt = ""; 
-
-            int txtW = fm.stringWidth(txt);
-            int txtH = fm.getAscent();
-
-            int txtX = (w - txtW) / 2;
-            int txtY = (h - fm.getHeight()) / 2 + txtH;
-
-            // Shadow Teks
-            g2.setColor(new Color(0,0,0,40));
-            g2.drawString(txt, txtX + 1, txtY + 1);
-
-            // Teks Utama
-            g2.setColor(Color.WHITE);
-            g2.drawString(txt, txtX, txtY);
+            // Render Icon di sini (Manual)
+            // Karena AbstractGameButton hanya menangani Teks
+            renderIcon(g2, w, h, yOffset);
         }
+    }
 
-        g2.dispose();
+    /**
+     * Helper khusus untuk menggambar Icon di tengah tombol
+     */
+    private void renderIcon(Graphics2D g2, int w, int h, int yOffset) {
+        Icon icon = getIcon();
+        if (icon != null) {
+            int ix = (w - icon.getIconWidth()) / 2;
+            int iy = ((h - icon.getIconHeight()) / 2) + yOffset; // Ikuti animasi tekan
+            icon.paintIcon(this, g2, ix, iy);
+        }
     }
 }

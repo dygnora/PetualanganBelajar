@@ -108,4 +108,20 @@ public class ProgressRepository {
         }
         return false;
     }
+    
+    // Cek apakah user sudah menamatkan seluruh game (Modul 1-4, Level 3 Selesai)
+    public boolean isGameFullyCompleted(int userId) {
+        String sql = "SELECT COUNT(*) AS total FROM user_progress " +
+                     "WHERE user_id = ? AND highest_level_unlocked > 3"; 
+        // Logic: Jika user punya progress > 3 di 4 modul berbeda, berarti tamat.
+        // Atau cara lebih sederhana: Cek apakah dia punya entry level > 3 untuk modul 1,2,3,4
+        
+        // Kita pakai cara aman: Cek satu per satu
+        for (int modId = 1; modId <= 4; modId++) {
+            if (getHighestLevelUnlocked(userId, modId) <= 3) {
+                return false; // Ada modul yang belum level 4 (tamat level 3)
+            }
+        }
+        return true;
+    }
 }

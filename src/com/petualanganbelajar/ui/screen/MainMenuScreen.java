@@ -8,7 +8,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.io.File;
+import java.net.URL;
 
 public class MainMenuScreen extends JPanel {
 
@@ -30,6 +30,11 @@ public class MainMenuScreen extends JPanel {
     public void setVisible(boolean aFlag) {
         super.setVisible(aFlag);
         if (aFlag) {
+            // Mainkan BGM Menu saat layar ini muncul
+            try {
+                SoundPlayer.getInstance().playBGM("bgm_menu.wav");
+            } catch (Exception e) {}
+            
             updateContinueButtonState();
         }
     }
@@ -42,14 +47,16 @@ public class MainMenuScreen extends JPanel {
         
         // Update Gambar
         String imgName = hasUser ? "btn_continue.png" : "btn_not_continue.png";
-        btnContinue.setImage(imgName); // Kita butuh method setImage di class ImageButton
+        btnContinue.setImage(imgName); 
 
         // Update Logika
         if (hasUser) {
             btnContinue.setAnimationEnabled(true);
             btnContinue.setCursor(new Cursor(Cursor.HAND_CURSOR));
-            // Pastikan listener hanya ada satu (hapus dulu yang lama jika ada)
+            
+            // Hapus listener lama biar tidak dobel, lalu tambah baru
             for (var l : btnContinue.getActionListeners()) btnContinue.removeActionListener(l);
+            
             btnContinue.addActionListener(e -> {
                 playSound("click");
                 ScreenManager.getInstance().showScreen("PROFILE_SELECT");
@@ -57,6 +64,7 @@ public class MainMenuScreen extends JPanel {
         } else {
             btnContinue.setAnimationEnabled(false);
             btnContinue.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+            
             // Hapus semua action listener agar tidak bisa diklik
             for (var l : btnContinue.getActionListeners()) btnContinue.removeActionListener(l);
         }
@@ -66,8 +74,9 @@ public class MainMenuScreen extends JPanel {
 
     private void loadAssets() {
         try {
-            File fBg = new File("resources/images/bg_menu.png");
-            if (fBg.exists()) bgImage = new ImageIcon(fBg.getAbsolutePath()).getImage();
+            // [FIX JAR] Load Background pakai getResource
+            URL bgUrl = getClass().getResource("/images/bg_menu.png");
+            if (bgUrl != null) bgImage = new ImageIcon(bgUrl).getImage();
         } catch (Exception e) {}
     }
 
@@ -83,7 +92,6 @@ public class MainMenuScreen extends JPanel {
         gbcMenu.anchor = GridBagConstraints.CENTER;
 
         // --- TOMBOL 0: LANJUTKAN ---
-        // Inisialisasi awal (state akan diupdate via setVisible nanti)
         btnContinue = new ImageButton("btn_not_continue.png");
         btnContinue.setButtonSize(400, 220);
         
@@ -182,7 +190,7 @@ public class MainMenuScreen extends JPanel {
         private boolean animationEnabled = true;
 
         public ImageButton(String filename) {
-            loadImage(filename); // Refactor load image
+            loadImage(filename); 
             
             setContentAreaFilled(false);
             setBorderPainted(false);
@@ -204,7 +212,6 @@ public class MainMenuScreen extends JPanel {
             });
         }
         
-        // Method baru untuk ganti gambar secara dinamis
         public void setImage(String filename) {
             loadImage(filename);
             repaint();
@@ -212,11 +219,13 @@ public class MainMenuScreen extends JPanel {
         
         private void loadImage(String filename) {
             try {
-                File f = new File("resources/images/" + filename);
-                if (f.exists()) {
-                    img = new ImageIcon(f.getAbsolutePath()).getImage();
-                    setText(""); // Hapus text jika gambar ada
+                // [FIX JAR] Load Button Images pakai getResource
+                URL url = getClass().getResource("/images/" + filename);
+                if (url != null) {
+                    img = new ImageIcon(url).getImage();
+                    setText(""); 
                 } else {
+                    // Fallback kalau gambar hilang
                     setText(filename);
                     setForeground(Color.RED);
                     setFont(new Font("Arial", Font.BOLD, 24));
@@ -233,7 +242,7 @@ public class MainMenuScreen extends JPanel {
         public void setAnimationEnabled(boolean enabled) {
             this.animationEnabled = enabled;
             if (!enabled) {
-                targetScale = 1.0f; // Reset scale jika dimatikan
+                targetScale = 1.0f; 
             }
         }
 

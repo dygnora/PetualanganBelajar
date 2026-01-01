@@ -6,18 +6,34 @@ import java.sql.*;
 public class DatabaseInitializer {
 
     public static void createTables() {
+        // 1. Definisi Tabel Lama
         String sqlUsers = "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, avatar TEXT NOT NULL, bgm_volume INTEGER DEFAULT 80, sfx_volume INTEGER DEFAULT 100, is_active INTEGER DEFAULT 1);";
         String sqlModules = "CREATE TABLE IF NOT EXISTS modules (id INTEGER PRIMARY KEY, name TEXT NOT NULL, description TEXT);";
         String sqlQuestions = "CREATE TABLE IF NOT EXISTS questions (id INTEGER PRIMARY KEY AUTOINCREMENT, module_id INTEGER, level INTEGER, question_type TEXT, question_text TEXT, question_image TEXT, question_audio TEXT, option_a TEXT, option_b TEXT, option_c TEXT, correct_answer TEXT);";
         String sqlProgress = "CREATE TABLE IF NOT EXISTS user_progress (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, module_id INTEGER, highest_level_unlocked INTEGER DEFAULT 1);";
         String sqlResults = "CREATE TABLE IF NOT EXISTS game_results (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, module_id INTEGER, level INTEGER, score INTEGER, created_at TEXT, FOREIGN KEY(user_id) REFERENCES users(id));";
 
+        // 2. [BARU] Definisi Tabel Story Progress
+        // Kita tambahkan di sini agar terkumpul dengan teman-temannya
+        String sqlStory = "CREATE TABLE IF NOT EXISTS story_progress (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                "user_id INTEGER NOT NULL, " +
+                "module_id INTEGER NOT NULL, " +
+                "level INTEGER NOT NULL, " +
+                "story_type TEXT NOT NULL, " +
+                "seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                "UNIQUE(user_id, module_id, level, story_type));";
+
         try (Connection conn = DatabaseConnection.connect();
              Statement stmt = conn.createStatement()) {
 
-            stmt.execute(sqlUsers); stmt.execute(sqlModules);
-            stmt.execute(sqlQuestions); stmt.execute(sqlProgress);
+            // 3. Eksekusi Pembuatan Tabel
+            stmt.execute(sqlUsers); 
+            stmt.execute(sqlModules);
+            stmt.execute(sqlQuestions); 
+            stmt.execute(sqlProgress);
             stmt.execute(sqlResults);
+            stmt.execute(sqlStory); 
 
             insertDefaultModules(conn);
             insertFinalQuestions(conn);

@@ -1,5 +1,6 @@
 package com.petualanganbelajar.ui.screen;
 
+import com.petualanganbelajar.content.StoryDataManager;
 import com.petualanganbelajar.core.GameConfig;
 import com.petualanganbelajar.core.GameState;
 import com.petualanganbelajar.core.ScreenManager;
@@ -7,10 +8,14 @@ import com.petualanganbelajar.core.SoundPlayer;
 import com.petualanganbelajar.model.ModuleModel;
 import com.petualanganbelajar.model.UserModel;
 import com.petualanganbelajar.repository.ProgressRepository;
+import com.petualanganbelajar.repository.StoryRepository; 
+import com.petualanganbelajar.ui.component.StoryDialogPanel; 
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.net.URL;
@@ -19,41 +24,83 @@ import java.util.List;
 
 public class ModuleSelectionScreen extends JPanel {
 
-    // Data
+    // --- DATA & REPO ---
     private List<ModuleModel> modules;
     private int currentIndex = 0;
+    private Image currentBgImage; // Background Modul (Carousel)
     
-    // Background Image
-    private Image currentBgImage;
-
-    // UI Components
-    private JLabel lblUserInfo;
-    private JLabel lblTotalScore;
-    
-    // Carousel Components
-    private PaperCardPanel cardPanel;
-    private JLabel lblModuleName;
-    private JTextArea txtModuleDesc;
-    
-    // Level Selection Panel
-    private JPanel levelButtonPanel; 
-    
-    private JPanel centerContainer;
-    private JPanel footer;
-    
-    // Navigation Buttons
-    private JButton btnPrev;
-    private JButton btnNext;
+    // [BARU] Variable khusus Prolog
+    private boolean isPrologueMode = false; 
+    private Image prologueBgImage; // Gambar bg_prologue.png
 
     private SoundPlayer soundPlayer = SoundPlayer.getInstance();
     private ProgressRepository progressRepo = new ProgressRepository();
+    private StoryRepository storyRepo = new StoryRepository(); 
+
+    // --- LAYERS ---
+    private JLayeredPane layeredPane;
+    private JPanel contentPanel;       // Wadah UI Menu (Tombol2)
+    private StoryDialogPanel storyPanel; // Wadah Story Overlay
+
+    // --- UI COMPONENTS ---
+    private JLabel lblUserInfo;
+    private JLabel lblTotalScore;
+    private PaperCardPanel cardPanel;
+    private JLabel lblModuleName;
+    private JTextArea txtModuleDesc;
+    private JPanel levelButtonPanel;
+    private JPanel centerContainer;
+    private JPanel footer;
+    private JButton btnPrev;
+    private JButton btnNext;
 
     public ModuleSelectionScreen() {
         setLayout(new BorderLayout());
-        
-        // ==========================================
-        // 1. HEADER (Floating UI)
-        // ==========================================
+        loadPrologueBackground(); // [BARU] Load gambar prolog saat inisialisasi
+        initLayeredUI(); 
+    }
+    
+    // [BARU] Helper load gambar prolog
+    private void loadPrologueBackground() {
+        try {
+            URL url = getClass().getResource("/images/bg_prologue.png");
+            if (url != null) prologueBgImage = new ImageIcon(url).getImage();
+        } catch (Exception e) { prologueBgImage = null; }
+    }
+
+    private void initLayeredUI() {
+        // 1. LayeredPane Utama
+        layeredPane = new JLayeredPane();
+        layeredPane.setOpaque(false);
+        add(layeredPane, BorderLayout.CENTER);
+
+        // 2. Content Panel (Menu Lama) - Layer Bawah
+        contentPanel = new JPanel(new BorderLayout());
+        contentPanel.setOpaque(false);
+        setupOldContentUI(); 
+        layeredPane.add(contentPanel, JLayeredPane.DEFAULT_LAYER);
+
+        // 3. Story Panel (Overlay) - Layer Atas
+        storyPanel = new StoryDialogPanel();
+        storyPanel.setVisible(false);
+        layeredPane.add(storyPanel, JLayeredPane.PALETTE_LAYER);
+
+        // 4. Resizer (Responsive)
+        this.addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentResized(ComponentEvent e) {
+                int w = getWidth(); int h = getHeight();
+                layeredPane.setBounds(0, 0, w, h);
+                contentPanel.setBounds(0, 0, w, h);
+                storyPanel.setBounds(0, 0, w, h);
+                revalidate();
+            }
+        });
+    }
+
+    // Membangun UI Menu (Persis seperti desain lama Anda)
+    private void setupOldContentUI() {
+        // HEADER
         JPanel topBar = new JPanel(new BorderLayout());
         topBar.setOpaque(false); 
         topBar.setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 20));
@@ -72,11 +119,9 @@ public class ModuleSelectionScreen extends JPanel {
         scoreBadge.add(lblTotalScore);
         topBar.add(scoreBadge, BorderLayout.EAST);
 
-        add(topBar, BorderLayout.NORTH);
+        contentPanel.add(topBar, BorderLayout.NORTH); 
 
-        // ==========================================
-        // 2. CENTER (CAROUSEL + LEVEL BUTTONS)
-        // ==========================================
+        // CENTER
         centerContainer = new JPanel(new GridBagLayout());
         centerContainer.setOpaque(false); 
         centerContainer.setBorder(new EmptyBorder(10, 20, 10, 20));
@@ -140,11 +185,9 @@ public class ModuleSelectionScreen extends JPanel {
         gbc.gridx = 2; gbc.gridy = 0; gbc.weightx = 0.15;
         centerContainer.add(btnNext, gbc);
 
-        add(centerContainer, BorderLayout.CENTER);
+        contentPanel.add(centerContainer, BorderLayout.CENTER);
 
-        // ==========================================
-        // 3. FOOTER
-        // ==========================================
+        // FOOTER
         FunnyButton btnBack = new FunnyButton("Kembali ke Menu", new Color(239, 83, 80)); 
         btnBack.addActionListener(e -> ScreenManager.getInstance().showScreen("MAIN_MENU"));
         
@@ -152,40 +195,92 @@ public class ModuleSelectionScreen extends JPanel {
         footer.setOpaque(false); 
         footer.setBorder(new EmptyBorder(0,0,20,0)); 
         footer.add(btnBack);
-        add(footer, BorderLayout.SOUTH);
+        contentPanel.add(footer, BorderLayout.SOUTH);
     }
 
-    @Override
-    protected void paintComponent(Graphics g) {
-        super.paintComponent(g);
-        if (currentBgImage != null) {
-            g.drawImage(currentBgImage, 0, 0, getWidth(), getHeight(), this);
-        } else {
-            g.setColor(GameConfig.COLOR_BG);
-            g.fillRect(0, 0, getWidth(), getHeight());
-        }
-        g.setColor(new Color(0, 0, 0, 30));
-        g.fillRect(0, 0, getWidth(), getHeight());
-    }
-
+    // --- LOGIKA PROLOG UTAMA ---
     @Override
     public void setVisible(boolean aFlag) {
         super.setVisible(aFlag);
         if (aFlag) {
             refreshUserInfo();
             loadModules();
+            // Cek apakah user perlu melihat prolog
+            checkAndPlayPrologue(); 
         }
     }
 
+    private void checkAndPlayPrologue() {
+        UserModel user = GameState.getCurrentUser();
+        if (user == null) return;
+
+        // Cek DB: ID 0,0, "PROLOGUE" menandakan intro global
+        if (!storyRepo.hasSeenStory(user.getId(), 0, 0, "PROLOGUE")) {
+            
+            isPrologueMode = true; // [PENTING] Aktifkan mode prolog untuk ganti BG
+            contentPanel.setVisible(false); // Sembunyikan tombol menu
+            repaint(); // Refresh agar BG Prologue muncul
+            
+            storyPanel.startStory(StoryDataManager.getPrologueStory(), () -> {
+                // Callback Saat Selesai:
+                storyRepo.markStoryAsSeen(user.getId(), 0, 0, "PROLOGUE");
+                isPrologueMode = false; // [PENTING] Matikan mode prolog
+                contentPanel.setVisible(true); // Munculkan kembali tombol menu
+                repaint(); // Refresh kembali ke BG Modul
+            });
+        } else {
+            contentPanel.setVisible(true);
+        }
+    }
+
+    // --- LOGIKA GAMBAR BACKGROUND ---
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        
+        // PRIORITAS 1: Jika sedang Prolog, gambar 'bg_prologue.png'
+        if (isPrologueMode && prologueBgImage != null) {
+            g.drawImage(prologueBgImage, 0, 0, getWidth(), getHeight(), this);
+        } 
+        // PRIORITAS 2: Jika Menu Biasa, gambar 'bg_module_X.png'
+        else if (currentBgImage != null) {
+            g.drawImage(currentBgImage, 0, 0, getWidth(), getHeight(), this);
+        } 
+        // PRIORITAS 3: Warna Polos (Fallback)
+        else {
+            g.setColor(GameConfig.COLOR_BG);
+            g.fillRect(0, 0, getWidth(), getHeight());
+        }
+        
+        // Overlay Hitam Tipis (Agar tulisan terbaca)
+        g.setColor(new Color(0, 0, 0, 30));
+        g.fillRect(0, 0, getWidth(), getHeight());
+    }
+
+    // --- HELPER METHODS LAMA (TIDAK BERUBAH) ---
+    
+    // --- GANTI BAGIAN INI SAJA ---
     private void loadModules() {
         this.modules = new ArrayList<>();
-        modules.add(new ModuleModel(1, "ANGKA", "Belajar Berhitung"));
-        modules.add(new ModuleModel(2, "HURUF", "Membaca & Menulis"));
-        modules.add(new ModuleModel(3, "WARNA", "Mengenal Warna"));
-        modules.add(new ModuleModel(4, "BENTUK", "Geometri Dasar"));
         
+        // Modul 1: Angka (Bobo)
+        modules.add(new ModuleModel(1, "ANGKA", 
+            "Bantu Bobo menghitung makanan yang lezat!"));
+            
+        // Modul 2: Huruf (Cici)
+        modules.add(new ModuleModel(2, "HURUF", 
+            "Cici butuh bantuan menulis nama tamu di undangan pesta."));
+            
+        // Modul 3: Warna (Moli)
+        modules.add(new ModuleModel(3, "WARNA", 
+            "Ayo hias panggung pesta Moli dengan warna-warni!"));
+            
+        // Modul 4: Bentuk (Tobi)
+        modules.add(new ModuleModel(4, "BENTUK", 
+            "Bantu Tobi memperbaiki panggung dengan bentuk yang pas."));
+            
         this.currentIndex = 0;
-        updateCarousel(); 
+        updateCarousel();
     }
 
     private void navigate(int direction) {
@@ -198,15 +293,11 @@ public class ModuleSelectionScreen extends JPanel {
 
     private void updateCarousel() {
         if (modules == null || modules.isEmpty()) return;
-
         ModuleModel mod = modules.get(currentIndex);
-        
         lblModuleName.setText(mod.getName().toUpperCase()); 
         txtModuleDesc.setText(mod.getDescription());
-        
         loadBackgroundImage(mod.getId());
         updateLevelButtons(mod);
-        
         repaint();
     }
     
@@ -222,10 +313,7 @@ public class ModuleSelectionScreen extends JPanel {
 
     private void updateLevelButtons(ModuleModel module) {
         levelButtonPanel.removeAll();
-        
-        // FIX ERROR 4: GameState statis
         UserModel user = GameState.getCurrentUser();
-        
         int highestUnlocked = 1; 
         if (user != null) {
             highestUnlocked = progressRepo.getHighestLevelUnlocked(user.getId(), module.getId());
@@ -241,16 +329,13 @@ public class ModuleSelectionScreen extends JPanel {
             btnLvl.addActionListener(e -> {
                 if (isUnlocked) {
                     playSound("click");
-                    // FIX ERROR 5: Gunakan method bawaan ScreenManager
                     ScreenManager.getInstance().showGame(module, lvlNum);
                 } else {
                     playSound("error"); 
                 }
             });
-            
             levelButtonPanel.add(btnLvl);
         }
-        
         levelButtonPanel.revalidate();
         levelButtonPanel.repaint();
     }
@@ -259,18 +344,12 @@ public class ModuleSelectionScreen extends JPanel {
         String filename = "bg_module_" + modId + ".png";
         try {
             URL url = getClass().getResource("/images/" + filename);
-            if (url != null) {
-                currentBgImage = new ImageIcon(url).getImage();
-            } else {
-                currentBgImage = null; 
-            }
-        } catch (Exception e) {
-            currentBgImage = null;
-        }
+            if (url != null) currentBgImage = new ImageIcon(url).getImage();
+            else currentBgImage = null; 
+        } catch (Exception e) { currentBgImage = null; }
     }
     
     private void refreshUserInfo() {
-        // FIX ERROR 6: GameState statis
         UserModel u = GameState.getCurrentUser();
         if (u != null) {
             lblUserInfo.setText("Player: " + u.getName());
@@ -285,11 +364,8 @@ public class ModuleSelectionScreen extends JPanel {
 
     private JButton createAnimatedImageButton(String filename, String fallbackText) {
         JButton btn = new JButton();
-        
         int normalSize = 130;
-        ImageIcon normalIcon = null;
-        ImageIcon hoverIcon = null;
-
+        ImageIcon normalIcon = null, hoverIcon = null;
         URL url = getClass().getResource("/images/" + filename);
 
         if (url != null) {
@@ -298,20 +374,15 @@ public class ModuleSelectionScreen extends JPanel {
                 normalIcon = new ImageIcon(raw.getImage().getScaledInstance(110, 110, Image.SCALE_SMOOTH));
                 hoverIcon = new ImageIcon(raw.getImage().getScaledInstance(130, 130, Image.SCALE_SMOOTH));
                 btn.setIcon(normalIcon);
-            } catch (Exception e) {
-                btn.setText(fallbackText);
-            }
+            } catch (Exception e) { btn.setText(fallbackText); }
         } else {
             btn.setText(fallbackText);
             btn.setFont(new Font("SansSerif", Font.BOLD, 60));
             btn.setForeground(Color.ORANGE);
         }
 
-        btn.setContentAreaFilled(false);
-        btn.setBorderPainted(false);
-        btn.setFocusPainted(false);
-        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btn.setPreferredSize(new Dimension(normalSize, normalSize));
+        btn.setContentAreaFilled(false); btn.setBorderPainted(false); btn.setFocusPainted(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR)); btn.setPreferredSize(new Dimension(normalSize, normalSize));
 
         final ImageIcon iconNormalFinal = normalIcon;
         final ImageIcon iconHoverFinal = hoverIcon;
@@ -323,24 +394,13 @@ public class ModuleSelectionScreen extends JPanel {
         return btn;
     }
     
+    // --- INNER CLASSES (Style Custom) ---
     class LevelButton extends JButton {
-        private int level;
-        private boolean isUnlocked;
-        private Color themeColor;
-        private boolean hover;
-        private boolean pressed;
-
+        private int level; private boolean isUnlocked; private Color themeColor; private boolean hover; private boolean pressed;
         public LevelButton(int level, boolean unlocked, Color themeColor) {
-            this.level = level;
-            this.isUnlocked = unlocked;
-            this.themeColor = themeColor;
-            
-            setPreferredSize(new Dimension(80, 80)); 
-            setContentAreaFilled(false);
-            setFocusPainted(false);
-            setBorderPainted(false);
+            this.level = level; this.isUnlocked = unlocked; this.themeColor = themeColor;
+            setPreferredSize(new Dimension(80, 80)); setContentAreaFilled(false); setFocusPainted(false); setBorderPainted(false);
             setCursor(isUnlocked ? new Cursor(Cursor.HAND_CURSOR) : new Cursor(Cursor.DEFAULT_CURSOR));
-            
             addMouseListener(new MouseAdapter() {
                 public void mouseEntered(MouseEvent e) { if(isUnlocked) { hover = true; repaint(); } }
                 public void mouseExited(MouseEvent e) { hover = false; repaint(); }
@@ -348,38 +408,22 @@ public class ModuleSelectionScreen extends JPanel {
                 public void mouseReleased(MouseEvent e) { if(isUnlocked) { pressed = false; repaint(); } }
             });
         }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            
+        @Override protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create(); g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             int w = getWidth(); int h = getHeight(); int offset = pressed ? 2 : 0; 
-            
             if (isUnlocked) {
-                Color base = themeColor; 
-                Color dark = themeColor.darker(); 
-                if (hover) base = themeColor.brighter();
-                
+                Color base = themeColor; Color dark = themeColor.darker(); if (hover) base = themeColor.brighter();
                 g2.setColor(new Color(0,0,0,30)); g2.fillRoundRect(5, 8, w-10, h-10, 20, 20); 
                 g2.setColor(dark); g2.fillRoundRect(5, 5+offset, w-10, h-10-offset, 20, 20); 
                 g2.setColor(base); g2.fillRoundRect(5, 0+offset, w-10, h-10, 20, 20); 
-                
                 g2.setColor(Color.WHITE); g2.setFont(new Font("Comic Sans MS", Font.BOLD, 36));
-                FontMetrics fm = g2.getFontMetrics();
-                String text = String.valueOf(level);
-                int x = (w - fm.stringWidth(text))/2;
-                int y = (h - 10 - fm.getHeight())/2 + fm.getAscent() + offset;
-                g2.drawString(text, x, y);
-                
+                FontMetrics fm = g2.getFontMetrics(); String text = String.valueOf(level);
+                g2.drawString(text, (w - fm.stringWidth(text))/2, (h - 10 - fm.getHeight())/2 + fm.getAscent() + offset);
             } else {
                 g2.setColor(new Color(224, 224, 224)); g2.fillRoundRect(5, 0, w-10, h-10, 20, 20);
                 g2.setColor(new Color(189, 189, 189)); g2.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 28));
-                FontMetrics fm = g2.getFontMetrics();
-                String text = "🔒";
-                int x = (w - fm.stringWidth(text))/2;
-                int y = (h - 10 - fm.getHeight())/2 + fm.getAscent();
-                g2.drawString(text, x, y);
+                FontMetrics fm = g2.getFontMetrics(); String text = "🔒";
+                g2.drawString(text, (w - fm.stringWidth(text))/2, (h - 10 - fm.getHeight())/2 + fm.getAscent());
             }
             g2.dispose();
         }
@@ -388,24 +432,19 @@ public class ModuleSelectionScreen extends JPanel {
     class PaperCardPanel extends JPanel {
         public PaperCardPanel() { setOpaque(false); }
         @Override protected void paintComponent(Graphics g) {
-            super.paintComponent(g);
-            Graphics2D g2 = (Graphics2D) g;
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            super.paintComponent(g); Graphics2D g2 = (Graphics2D) g; g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             int w = getWidth(); int h = getHeight(); int arc = 20; 
             g2.setColor(new Color(0,0,0,20)); g2.fillRoundRect(5, 5, w-10, h-10, arc, arc); 
             g2.setColor(new Color(255, 248, 225)); g2.fillRoundRect(0, 0, w-5, h-5, arc, arc); 
-            g2.setColor(new Color(215, 204, 200)); g2.setStroke(new BasicStroke(1)); 
-            g2.drawRoundRect(0, 0, w-5, h-5, arc, arc); 
+            g2.setColor(new Color(215, 204, 200)); g2.setStroke(new BasicStroke(1)); g2.drawRoundRect(0, 0, w-5, h-5, arc, arc); 
         }
     }
 
     class FunnyButton extends JButton {
         private Color baseColor; private Timer animTimer; private float scale = 1.0f; private float targetScale = 1.0f; 
         public FunnyButton(String text, Color color) {
-            super(text); this.baseColor = color;
-            setFont(new Font("Comic Sans MS", Font.BOLD, 22)); setForeground(Color.WHITE);
-            setFocusPainted(false); setBorderPainted(false); setContentAreaFilled(false); setCursor(new Cursor(Cursor.HAND_CURSOR));
-            setPreferredSize(new Dimension(300, 70));
+            super(text); this.baseColor = color; setFont(new Font("Comic Sans MS", Font.BOLD, 22)); setForeground(Color.WHITE);
+            setFocusPainted(false); setBorderPainted(false); setContentAreaFilled(false); setCursor(new Cursor(Cursor.HAND_CURSOR)); setPreferredSize(new Dimension(300, 70));
             animTimer = new Timer(16, e -> {
                 if (Math.abs(targetScale - scale) > 0.01f) { scale += (targetScale - scale) * 0.2f; repaint(); } 
                 else { scale = targetScale; ((Timer)e.getSource()).stop(); repaint(); }
@@ -416,37 +455,27 @@ public class ModuleSelectionScreen extends JPanel {
             });
         }
         @Override protected void paintComponent(Graphics g) {
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            Graphics2D g2 = (Graphics2D) g.create(); g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             int w = getWidth(); int h = getHeight(); int centerX = w / 2; int centerY = h / 2;
             g2.translate(centerX, centerY); g2.scale(scale, scale); g2.translate(-centerX, -centerY);
             int btnWidth = 280; int btnHeight = 55; int x = (w - btnWidth) / 2; int y = (h - btnHeight) / 2;
             g2.setColor(new Color(0,0,0,30)); g2.fillRoundRect(x+3, y+5, btnWidth, btnHeight, 40, 40);
             g2.setColor(baseColor); g2.fillRoundRect(x, y, btnWidth, btnHeight, 40, 40);
             g2.setColor(new Color(255,255,255,50)); g2.fillRoundRect(x+5, y+5, btnWidth-10, btnHeight/2, 30, 30);
-            g2.setColor(Color.WHITE);
-            FontMetrics fm = g2.getFontMetrics();
-            Rectangle stringBounds = fm.getStringBounds(getText(), g2).getBounds();
+            g2.setColor(Color.WHITE); FontMetrics fm = g2.getFontMetrics(); Rectangle stringBounds = fm.getStringBounds(getText(), g2).getBounds();
             int textX = x + (btnWidth - stringBounds.width) / 2; int textY = y + (btnHeight - stringBounds.height) / 2 + fm.getAscent() - 2;
-            g2.drawString(getText(), textX, textY);
-            g2.dispose();
+            g2.drawString(getText(), textX, textY); g2.dispose();
         }
     }
     
     class BadgePanel extends JPanel {
         private Color bgColor;
         public BadgePanel(Color color) {
-            super(new FlowLayout(FlowLayout.CENTER, 0, 0));
-            this.bgColor = color;
-            setOpaque(false);
-            setBorder(new EmptyBorder(8, 20, 8, 20)); 
+            super(new FlowLayout(FlowLayout.CENTER, 0, 0)); this.bgColor = color; setOpaque(false); setBorder(new EmptyBorder(8, 20, 8, 20)); 
         }
         @Override protected void paintComponent(Graphics g) {
-            Graphics2D g2 = (Graphics2D) g;
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setColor(bgColor);
-            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 30, 30);
-            super.paintComponent(g);
+            Graphics2D g2 = (Graphics2D) g; g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(bgColor); g2.fillRoundRect(0, 0, getWidth(), getHeight(), 30, 30); super.paintComponent(g);
         }
     }
 }

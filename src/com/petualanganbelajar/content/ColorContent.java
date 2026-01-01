@@ -14,7 +14,6 @@ public class ColorContent {
 
     // --- HELPER KHUSUS MODUL WARNA ---
     
-    // Pindahkan helper spesifik warna ke sini agar rapi
     private static Map<String, List<String>> getAssetMap() {
         Map<String, List<String>> assetMap = new HashMap<>();
         assetMap.put("RED", Collections.singletonList("item_red_apple.png"));
@@ -24,8 +23,11 @@ public class ColorContent {
         assetMap.put("ORANGE", Collections.singletonList("item_orange_fish.png"));
         assetMap.put("PURPLE", Collections.singletonList("item_purple_grape.png"));
         assetMap.put("PINK", Collections.singletonList("item_pink_donut.png"));
+        
+        // [PENTING] Mapping Beruang ke Cokelat & Kucing ke Hitam
         assetMap.put("BROWN", Collections.singletonList("item_brown_bear.png"));
         assetMap.put("BLACK", Collections.singletonList("item_black_cat.png"));
+        
         assetMap.put("WHITE", Collections.singletonList("item_white_rabbit.png"));
         return assetMap;
     }
@@ -69,38 +71,48 @@ public class ColorContent {
             if (type == 0) { // Mencocokkan Benda
                 String[] tpls = {"Moli mencari gambar <b>%s</b>. Mana yang benar?", "Benda mana yang berwarna <b>%s</b>?", "Tunjukkan padaku warna <b>%s</b>!"};
                 narrative = String.format(tpls[GeneratorUtils.rand.nextInt(tpls.length)], targetName);
+                
                 correctAns = assetMap.get(targetColor).get(0);
                 dist1 = getAssetFromOtherColor(assetMap, colorCodes, targetColor);
                 dist2 = getAssetFromOtherColor(assetMap, colorCodes, targetColor, getColorFromAsset(dist1, assetMap));
-            } else if (type == 1) { // Odd One Out (Yang Beda)
-                String[] tpls = {"Ups, ada yang salah! Mana yang warnanya <b>BEDA</b>?", "Cari gambar yang warnanya <b>LAIN</b> sendiri!", "Yang mana yang <b>ASING</b>?"};
+            
+            } else if (type == 1) { // Odd One Out
+                String[] tpls = {"Ups, ada yang salah! Mana yang warnanya <b>BEDA</b>?", "Cari gambar yang warnanya <b>LAIN</b> sendiri!", "Yang mana yang beda <b>SENDIRI</b>?"};
                 narrative = tpls[GeneratorUtils.rand.nextInt(tpls.length)];
-                String maj = assetMap.get(targetColor).get(0);
-                dist1 = maj; dist2 = maj; // Pengecoh adalah jawaban yang salah (karena yang dicari yang UNIK)
                 
-                // Cari warna unik yang beda dari targetColor
+                String maj = assetMap.get(targetColor).get(0);
+                dist1 = maj; dist2 = maj; 
                 String uniqColor = getRandomColorCodeExcluding(colorCodes, targetColor);
                 correctAns = assetMap.get(uniqColor).get(0);
+            
             } else { // Mewarnai (Siluet)
                 String chosenAsset = assetMap.get(targetColor).get(0);
                 String objName = "GAMBAR";
                 try { objName = chosenAsset.split("_")[2].replace(".png","").toUpperCase(); } catch(Exception e){}
                 
-                String[] tpls = {"%s ini pucat! Warnai menjadi <b>%s</b>!", "Berikan warna <b>%s</b> pada gambar ini!", "Ayo warnai %s dengan warna <b>%s</b>!"};
+                // [FIXED] Menggunakan %2$s untuk mengambil Nama Warna (parameter ke-2)
+                String[] tpls = {
+                    "%s ini pucat! Warnai menjadi <b>%s</b>!",    
+                    "Berikan warna <b>%2$s</b> pada gambar ini!", 
+                    "Ayo warnai %s dengan warna <b>%s</b>!"       
+                };
+                
                 narrative = String.format(tpls[GeneratorUtils.rand.nextInt(tpls.length)], objName, targetName);
                 
                 visualQuestion = "SILHOUETTE:" + chosenAsset;
                 correctAns = "SHAPE:CIRCLE:" + targetColor;
+                
                 String c1 = getRandomColorCodeExcluding(colorCodes, targetColor);
                 String c2 = getRandomColorCodeExcluding(colorCodes, targetColor, c1);
                 dist1 = "SHAPE:CIRCLE:" + c1; 
                 dist2 = "SHAPE:CIRCLE:" + c2;
             }
+            
             GeneratorUtils.addQ(pstmt, 3, 1, "CHOICE", narrative, visualQuestion, null, correctAns, dist1, dist2, correctAns);
         }
     }
 
-    // --- LEVEL 2: SORTIR WARNA (CLICK GAME) ---
+    // --- LEVEL 2: SORTIR WARNA (DIPERBAIKI: PILIH SATU) ---
     private static void genL2(PreparedStatement pstmt) throws SQLException {
         Map<String, List<String>> assetMap = getAssetMap();
         String[] colorCodes = {"RED", "YELLOW", "BLUE", "GREEN", "ORANGE", "PURPLE", "PINK", "BROWN", "BLACK", "WHITE"};
@@ -112,12 +124,18 @@ public class ColorContent {
             int idx = -1; for(int k=0; k<colorCodes.length; k++) if(colorCodes[k].equals(targetColor)) idx = k;
             String targetName = colorNames[idx];
             
-            String[] tpls = {"Cari dan Klik semua gambar <b>%s</b>!", "Kumpulkan benda berwarna <b>%s</b>!", "Mana saja yang warnanya <b>%s</b>?"};
+            // [REVISI NARASI] Menggunakan kalimat tunggal/pilih satu
+            String[] tpls = {
+                "Mana gambar yang warnanya <b>%s</b>?", 
+                "Ayo klik benda berwarna <b>%s</b>!", 
+                "Coba tunjuk, yang mana warna <b>%s</b>?"
+            };
+            
             String narrative = String.format(tpls[GeneratorUtils.rand.nextInt(tpls.length)], targetName);
             
             String correctImg = assetMap.get(targetColor).get(0);
             
-            // Siapkan Distractor (Warna selain target)
+            // Siapkan Distractor
             List<String> avail = new ArrayList<>(Arrays.asList(colorCodes));
             avail.remove(targetColor); 
             Collections.shuffle(avail);
@@ -128,8 +146,7 @@ public class ColorContent {
             }
             
             if (dists.size() >= 5) {
-                // Format Soal CLICK: OptA (Benar), OptB & OptC (Salah/Campuran untuk visualisasi grid)
-                // Di sistem ClickGame, OptA adalah image target yang harus diklik.
+                // Gameplay Click: OptA Benar, OptB/C Salah
                 String optA = correctImg; 
                 String optB = dists.get(0) + "," + dists.get(1);
                 String optC = dists.get(2) + "," + dists.get(3) + "," + dists.get(4);
@@ -138,20 +155,14 @@ public class ColorContent {
         }
     }
 
-    // --- LEVEL 3: CAMPUR WARNA ---
     // --- LEVEL 3: CAMPUR WARNA (2 & 3 BAHAN) ---
     private static void genL3(PreparedStatement pstmt) throws SQLException {
-        // Format: {Input1, Input2, ..., Result}
-        // Array bisa berisi 3 elemen (2 bahan) atau 4 elemen (3 bahan)
         String[][] recipes = {
-            // 2 Bahan (Sekunder & Tint/Shade)
             {"RED", "YELLOW", "ORANGE"}, 
             {"BLUE", "YELLOW", "GREEN"}, 
             {"RED", "BLUE", "PURPLE"}, 
             {"RED", "WHITE", "PINK"}, 
             {"BLACK", "WHITE", "GRAY"},
-            
-            // 3 Bahan (Tersier/Kompleks) -> INI PERMINTAAN ANDA
             {"RED", "YELLOW", "BLUE", "BROWN"} 
         };
         
@@ -162,7 +173,6 @@ public class ColorContent {
         Collections.shuffle(recipeIndices);
 
         Map<String, String> colorFiles = new HashMap<>();
-        // Primer & Sekunder
         colorFiles.put("RED", "cat_merah.png");
         colorFiles.put("YELLOW", "cat_kuning.png");
         colorFiles.put("BLUE", "cat_biru.png");
@@ -184,16 +194,13 @@ public class ColorContent {
             int rIdx = recipeIndices.get(i % recipeIndices.size());
             String[] recipe = recipes[rIdx];
             
-            // Ambil elemen terakhir sebagai Hasil (Result)
             String resultKey = recipe[recipe.length - 1];
             String ansAsset = colorFiles.get(resultKey);
             
-            // Sisanya adalah Input (Bahan)
             List<String> inputs = new ArrayList<>();
             for(int k=0; k<recipe.length-1; k++) {
                 inputs.add(recipe[k]);
             }
-            // Acak urutan input (misal: Biru+Merah+Kuning)
             Collections.shuffle(inputs);
             
             String[] tpls = {
@@ -203,7 +210,6 @@ public class ColorContent {
             };
             String narrative = tpls[GeneratorUtils.rand.nextInt(tpls.length)];
             
-            // Build Visual Data String Dinamis (Bisa A+B atau A+B+C)
             StringBuilder visualBuilder = new StringBuilder();
             visualBuilder.append(narrative).append(" ## ");
             
@@ -214,7 +220,6 @@ public class ColorContent {
                 }
             }
             
-            // Generate Pengecoh
             String dist1Key;
             do { dist1Key = possibleDistractors[GeneratorUtils.rand.nextInt(possibleDistractors.length)]; } 
             while (dist1Key.equals(resultKey));
@@ -230,7 +235,6 @@ public class ColorContent {
         }
     }
     
-    // Helper kecil untuk Level 1 (Reverse lookup color from asset file)
     private static String getColorFromAsset(String filename, Map<String, List<String>> assetMap) {
         for (Map.Entry<String, List<String>> entry : assetMap.entrySet()) {
             if (entry.getValue().contains(filename)) return entry.getKey();

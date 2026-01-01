@@ -12,17 +12,19 @@ import javax.swing.plaf.basic.BasicSliderUI;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.io.File;
 import java.net.URL;
 
 public class SettingsScreen extends JPanel {
     
     private Image bgImage;
     private JCheckBox chkMute;
-    private JCheckBox chkFullScreen; // [BARU] Checkbox Full Screen
+    private JCheckBox chkFullScreen;
     private JSlider sliderBGM;
     private JSlider sliderSFX;
     private final UserRepository userRepo;
+    
+    // Flag to prevent listener loops during initialization
+    private boolean isLoadingUI = false; 
 
     // --- THEME COLORS ---
     private static final Color COL_BOARD_BG = new Color(80, 50, 20, 240);
@@ -49,7 +51,7 @@ public class SettingsScreen extends JPanel {
         JPanel wrapper = new JPanel(new GridBagLayout());
         wrapper.setOpaque(false);
 
-        // --- PANEL SETTING (KAYU) ---
+        // --- SETTINGS PANEL ---
         JPanel settingsPanel = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -66,7 +68,7 @@ public class SettingsScreen extends JPanel {
         settingsPanel.setOpaque(false);
         settingsPanel.setBorder(new EmptyBorder(40, 60, 40, 60));
         
-        // 1. JUDUL
+        // 1. TITLE
         JLabel title = new JLabel("PENGATURAN");
         title.setFont(new Font("Comic Sans MS", Font.BOLD, 42));
         title.setForeground(COL_BOARD_BORDER);
@@ -74,47 +76,65 @@ public class SettingsScreen extends JPanel {
         settingsPanel.add(title);
         settingsPanel.add(Box.createVerticalStrut(30));
 
-        // 2. OPSI TAMPILAN & SUARA (Checkbox Panel)
+        // 2. OPTIONS (Fullscreen & Mute)
         JPanel checkPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 0));
         checkPanel.setOpaque(false);
         checkPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        // A. Checkbox Full Screen [BARU]
+        // A. Fullscreen Checkbox
         chkFullScreen = createCustomCheckbox(" Layar Penuh");
-        // Deteksi status saat ini
-        JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(this);
-        if (frame != null) {
-            chkFullScreen.setSelected(frame.getExtendedState() == JFrame.MAXIMIZED_BOTH);
-        } else {
-            chkFullScreen.setSelected(true); // Default anggap full
-        }
-        
         chkFullScreen.addActionListener(e -> toggleFullScreen(chkFullScreen.isSelected()));
         checkPanel.add(chkFullScreen);
 
-        // B. Checkbox Mute
+        // B. Mute Checkbox
         chkMute = createCustomCheckbox(" Senyapkan Suara");
-        chkMute.addActionListener(e -> toggleSliders(!chkMute.isSelected()));
+        chkMute.addActionListener(e -> {
+            if (isLoadingUI) return; 
+            boolean isMuted = chkMute.isSelected();
+            toggleSliders(!isMuted);
+            
+            // Update SoundPlayer directly
+            SoundPlayer.getInstance().setMute(isMuted);
+            // Jika unmute, kembalikan volume real
+            if (!isMuted) {
+                SoundPlayer.getInstance().setVolumeBGM(sliderBGM.getValue());
+                SoundPlayer.getInstance().setVolumeSFX(sliderSFX.getValue());
+            }
+        });
         checkPanel.add(chkMute);
 
         settingsPanel.add(checkPanel);
         settingsPanel.add(Box.createVerticalStrut(30));
 
-        // 3. SLIDER BGM
+        // 3. BGM SLIDER
         settingsPanel.add(createLabel("Musik Latar (BGM)"));
         settingsPanel.add(Box.createVerticalStrut(8));
         sliderBGM = createNatureSlider();
+        
+        // Listener: Update Realtime
+        sliderBGM.addChangeListener(e -> {
+            if (!isLoadingUI && !chkMute.isSelected()) {
+                SoundPlayer.getInstance().setVolumeBGM(sliderBGM.getValue());
+            }
+        });
         settingsPanel.add(sliderBGM);
         settingsPanel.add(Box.createVerticalStrut(20));
 
-        // 4. SLIDER SFX
+        // 4. SFX SLIDER
         settingsPanel.add(createLabel("Efek Suara (SFX)"));
         settingsPanel.add(Box.createVerticalStrut(8));
         sliderSFX = createNatureSlider();
+        
+        // Listener: Update Realtime
+        sliderSFX.addChangeListener(e -> {
+            if (!isLoadingUI && !chkMute.isSelected()) {
+                SoundPlayer.getInstance().setVolumeSFX(sliderSFX.getValue());
+            }
+        });
         settingsPanel.add(sliderSFX);
         settingsPanel.add(Box.createVerticalStrut(40));
 
-        // 5. TOMBOL SIMPAN
+        // 5. SAVE BUTTON
         GameButton btnSave = new GameButton("SIMPAN", new Color(46, 204, 113), new Color(39, 174, 96));
         btnSave.addActionListener(e -> saveSettings());
         settingsPanel.add(btnSave);
@@ -122,31 +142,101 @@ public class SettingsScreen extends JPanel {
         wrapper.add(settingsPanel);
         add(wrapper, BorderLayout.CENTER);
         
-        addBackLink();
+        // Tombol BATAL sudah dihapus dari sini
     }
     
-    // --- [BARU] LOGIKA FULL SCREEN vs WINDOWED ---
+    // --- KEY METHOD: PREVENT RESET & SYNC UI ---
+    @Override
+    public void setVisible(boolean aFlag) {
+        super.setVisible(aFlag);
+        if (aFlag) {
+            isLoadingUI = true; // Lock listeners
+
+            // 1. Sync Fullscreen UI (Cek apakah frame undecorated)
+            JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(this);
+            if(frame != null && chkFullScreen != null) {
+                chkFullScreen.setSelected(frame.isUndecorated());
+            }
+
+            // 2. Sync Mute UI with SoundPlayer
+            boolean currentMute = SoundPlayer.getInstance().isMuted();
+            chkMute.setSelected(currentMute);
+            toggleSliders(!currentMute); 
+
+            // 3. Sync Sliders with SoundPlayer Memory (Source of Truth)
+            sliderBGM.setValue(SoundPlayer.getInstance().getVolumeBGM());
+            sliderSFX.setValue(SoundPlayer.getInstance().getVolumeSFX());
+            
+            isLoadingUI = false; // Unlock listeners
+        }
+    }
+    
+    // --- FIX: LOGIKA LAYAR PENUH YANG LEBIH AMAN ---
     private void toggleFullScreen(boolean enableFull) {
+        if (isLoadingUI) return;
+        
         JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(this);
         if (frame == null) return;
-
-        // Kita harus dispose frame dulu sebelum mengubah decoration/state
-        frame.dispose();
         
-        if (enableFull) {
-            frame.setUndecorated(true); // Hilangkan border
-            frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
-        } else {
-            frame.setUndecorated(false); // Munculkan border window biasa
-            frame.setExtendedState(JFrame.NORMAL);
-            frame.setSize(1024, 768); // Ukuran default windowed
-            frame.setLocationRelativeTo(null); // Tengah layar
-        }
-        
-        frame.setVisible(true);
+        // Jalankan di Event Dispatch Thread agar aman
+        SwingUtilities.invokeLater(() -> {
+            // 1. Matikan Frame (Harus dispose untuk ubah undecorated)
+            frame.dispose();
+            
+            // 2. Ubah Dekorasi
+            frame.setUndecorated(enableFull);
+            
+            // 3. Atur State Window
+            if (enableFull) {
+                // Mode Fullscreen (Maximized tanpa border)
+                frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+            } else {
+                // Mode Windowed Normal
+                frame.setExtendedState(JFrame.NORMAL);
+                frame.setSize(1024, 768); // Ukuran default
+                frame.setLocationRelativeTo(null); // Tengah layar
+            }
+            
+            // 4. Nyalakan Kembali
+            frame.setVisible(true);
+            
+            // 5. Validasi Ulang Layout (Penting agar isi tidak berantakan)
+            frame.revalidate();
+            frame.repaint();
+        });
     }
 
-    // Helper membuat Checkbox Keren
+    private void saveSettings() {
+        int bgmVol = sliderBGM.getValue();
+        int sfxVol = sliderSFX.getValue();
+        
+        // Save to Database if user is logged in
+        UserModel user = GameState.getCurrentUser();
+        if (user != null) {
+            user.setBgmVolume(bgmVol);
+            user.setSfxVolume(sfxVol);
+            try { 
+                userRepo.updateVolume(user.getId(), bgmVol, sfxVol); 
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        
+        playSound("click");
+        ScreenManager.getInstance().showScreen("MAIN_MENU");
+    }
+
+    private void playSound(String name) {
+        try { SoundPlayer.getInstance().playSFX(name + ".wav"); } catch (Exception ignored) {}
+    }
+    
+    private void toggleSliders(boolean enabled) {
+        sliderBGM.setEnabled(enabled);
+        sliderSFX.setEnabled(enabled);
+    }
+
+    // --- UI COMPONENTS HELPERS ---
+
     private JCheckBox createCustomCheckbox(String text) {
         JCheckBox chk = new JCheckBox(text);
         chk.setFont(new Font("Comic Sans MS", Font.BOLD, 18));
@@ -174,18 +264,6 @@ public class SettingsScreen extends JPanel {
                 }
             }
         };
-    }
-    
-    private void addBackLink() {
-        JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        topPanel.setOpaque(false);
-        topPanel.setBorder(new EmptyBorder(20,20,0,0));
-        GameButton btnBack = new GameButton("BATAL", new Color(231, 76, 60), new Color(192, 57, 43));
-        btnBack.setPreferredSize(new Dimension(120, 40));
-        btnBack.setFont(new Font("Comic Sans MS", Font.BOLD, 14));
-        btnBack.addActionListener(e -> ScreenManager.getInstance().showScreen("MAIN_MENU"));
-        topPanel.add(btnBack);
-        add(topPanel, BorderLayout.NORTH);
     }
     
     private JLabel createLabel(String text) {
@@ -233,59 +311,6 @@ public class SettingsScreen extends JPanel {
         slider.addMouseListener(ma);
         slider.addMouseMotionListener(ma);
         return slider;
-    }
-    
-    private void toggleSliders(boolean enabled) {
-        sliderBGM.setEnabled(enabled);
-        sliderSFX.setEnabled(enabled);
-    }
-    
-    @Override
-    public void setVisible(boolean aFlag) {
-        super.setVisible(aFlag);
-        if (aFlag) {
-            // Load Fullscreen State
-            JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(this);
-            if(frame != null && chkFullScreen != null) {
-                // Jika Undecorated = true, asumsi Full Screen
-                chkFullScreen.setSelected(frame.isUndecorated());
-            }
-
-            // Load Audio Settings
-            UserModel user = GameState.getCurrentUser();
-            if (user != null) {
-                sliderBGM.setValue(user.getBgmVolume());
-                sliderSFX.setValue(user.getSfxVolume());
-            } else {
-                sliderBGM.setValue(80);
-                sliderSFX.setValue(100);
-            }
-            chkMute.setSelected(false);
-            toggleSliders(true);
-        }
-    }
-    
-    private void saveSettings() {
-        boolean isMuted = chkMute.isSelected();
-        int bgmVol = isMuted ? 0 : sliderBGM.getValue();
-        int sfxVol = isMuted ? 0 : sliderSFX.getValue();
-        
-        try { SoundPlayer.getInstance().setMute(isMuted); } catch (Exception ex) {}
-        
-        UserModel user = GameState.getCurrentUser();
-        if (user != null) {
-            user.setBgmVolume(sliderBGM.getValue());
-            user.setSfxVolume(sliderSFX.getValue());
-            try { userRepo.updateVolume(user.getId(), sliderBGM.getValue(), sliderSFX.getValue()); } 
-            catch (Exception e) {}
-        }
-        
-        playSound("click");
-        ScreenManager.getInstance().showScreen("MAIN_MENU");
-    }
-
-    private void playSound(String name) {
-        try { SoundPlayer.getInstance().playSFX(name + ".wav"); } catch (Exception ignored) {}
     }
 
     @Override

@@ -8,7 +8,7 @@ import javax.swing.SwingUtilities;
 
 public class Main {
     
-    private static final boolean DEBUG_SKIP_SPLASH = true;
+    private static final boolean DEBUG_SKIP_SPLASH = false;
 
 
     public static void main(String[] args) {
@@ -34,7 +34,7 @@ public class Main {
         ScreenManager sm = ScreenManager.getInstance();
 
         // --- DAFTAR SCREEN ---
-        // sm.addScreen("TITLE", new TitleScreen()); // Opsional jika belum dipakai
+         sm.addScreen("TITLE", new TitleScreen()); // Opsional jika belum dipakai
         sm.addScreen("MAIN_MENU", new MainMenuScreen());
         sm.addScreen("PROFILE_SELECT", new ProfileSelectionScreen());
         sm.addScreen("PROFILE_CREATE", new ProfileCreateScreen());

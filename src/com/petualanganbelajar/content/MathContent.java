@@ -107,32 +107,79 @@ public class MathContent {
         }
     }
 
-    // --- LEVEL 3: PENJUMLAHAN (DIPERBAIKI) ---
+    // --- LEVEL 3: PENJUMLAHAN & PENGURANGAN (FIXED) ---
     private static void genL3(PreparedStatement pstmt) throws SQLException {
         String[] itemNames = {"Apel", "Pisang", "Jeruk", "Donat", "Kue"};
-        String[] templates = {"Berapa hasil penjumlahannya?", "Ayo hitung semuanya!", "Jumlahkan makanan di bawah ini!", "Ada berapa totalnya?"};
         
-        // Buat Deck Soal Penjumlahan Unik (Agar tidak ada 2+3 dua kali)
-        // Range A (1-4) dan B (1-4) -> 16 Kombinasi Unik. Kita butuh 15 soal.
+        // Deck Soal Unik (Campuran Tambah & Kurang)
         List<String> mathDeck = new ArrayList<>();
-        for(int a=1; a<=4; a++) {
-            for(int b=1; b<=4; b++) {
-                mathDeck.add(a + ":" + b);
+        
+        // 1. Generate Soal Penjumlahan (1-5 + 1-5)
+        for(int a=1; a<=5; a++) {
+            for(int b=1; b<=5; b++) {
+                mathDeck.add("ADD:" + a + ":" + b);
             }
         }
-        Collections.shuffle(mathDeck);
         
-        for (int i = 0; i < 15; i++) {
-            String[] nums = mathDeck.get(i).split(":");
-            int a = Integer.parseInt(nums[0]);
-            int b = Integer.parseInt(nums[1]);
+        // 2. Generate Soal Pengurangan (Hasil tidak boleh negatif)
+        for(int a=2; a<=9; a++) {
+            for(int b=1; b<a; b++) {
+                mathDeck.add("SUB:" + a + ":" + b);
+            }
+        }
+        
+        Collections.shuffle(mathDeck); 
+        int limit = Math.min(15, mathDeck.size());
+        
+        for (int i = 0; i < limit; i++) {
+            String[] parts = mathDeck.get(i).split(":");
+            String type = parts[0];
+            int a = Integer.parseInt(parts[1]);
+            int b = Integer.parseInt(parts[2]);
             
-            // Ambil benda acak (ini boleh acak karena angkanya sudah unik)
             String name = itemNames[GeneratorUtils.rand.nextInt(itemNames.length)];
             String file = getFileForMathItem(name);
-            String text = templates[GeneratorUtils.rand.nextInt(templates.length)];
             
-            GeneratorUtils.addQ(pstmt, 1, 3, "TYPING", text + " ## " + file + ":" + a + " ## + ## " + file + ":" + b, null, null, null, null, null, String.valueOf(a+b));
+            String narrative;
+            String visualData;
+            String ans;
+            
+            if (type.equals("ADD")) {
+                // --- KASUS PENJUMLAHAN ---
+                // [FIX ERROR] Gunakan indeks argumen (%1, %2, %3) agar aman
+                // Argumen yang dikirim: 1=a (int), 2=name (String), 3=b (int)
+                String[] tpls = {
+                    "Bobo punya %1$d %2$s, lalu beli lagi %3$d. Berapa totalnya?",
+                    "Ada %1$d %2$s di piring, ditambah %3$d lagi. Jadi berapa?",
+                    "Hitung jumlah %2$s ini: %1$d + %3$d = ...", // %2$s mengambil 'name'
+                    "Ibu memberi %1$d %2$s, Ayah memberi %3$d lagi. Semuanya ada..."
+                };
+                
+                // Kita kirim urutan: (a, name, b)
+                narrative = String.format(tpls[GeneratorUtils.rand.nextInt(tpls.length)], a, name, b);
+                
+                visualData = file + ":" + a + " ## + ## " + file + ":" + b;
+                ans = String.valueOf(a + b);
+                
+            } else {
+                // --- KASUS PENGURANGAN ---
+                // Argumen: 1=a, 2=name, 3=b
+                String[] tpls = {
+                    "Ada %1$d %2$s, lalu dimakan Bobo %3$d. Sisa berapa?",
+                    "Dari %1$d %2$s, diberikan ke teman %3$d. Tinggal berapa?",
+                    "Ayo hitung sisanya: %1$d - %3$d = ...",
+                    "Ada %1$d %2$s, hilang %3$d. Sisa berapa?"
+                };
+                
+                narrative = String.format(tpls[GeneratorUtils.rand.nextInt(tpls.length)], a, name, b);
+
+                visualData = file + ":" + a + " ## - ## " + file + ":" + b;
+                ans = String.valueOf(a - b);
+            }
+            
+            String fullText = narrative + " ## " + visualData;
+            
+            GeneratorUtils.addQ(pstmt, 1, 3, "TYPING", fullText, null, null, null, null, null, ans);
         }
     }
 }

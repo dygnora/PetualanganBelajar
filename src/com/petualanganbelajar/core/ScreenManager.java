@@ -3,7 +3,6 @@ package com.petualanganbelajar.core;
 import javax.swing.*;
 import java.awt.*;
 import com.petualanganbelajar.ui.screen.GameScreen;
-import com.petualanganbelajar.ui.screen.StoryScreen;
 import com.petualanganbelajar.ui.screen.ResultScreen;
 import com.petualanganbelajar.model.ModuleModel;
 
@@ -13,10 +12,10 @@ public class ScreenManager {
     private final JPanel mainPanel;
     private final CardLayout cardLayout;
     
-    // Referensi ke layar dinamis untuk memanggil method khususnya
+    // Referensi layar dinamis
     private GameScreen gameScreenRef; 
-    private StoryScreen storyScreenRef; 
     private ResultScreen resultScreenRef;
+    // StoryScreen sudah dihapus dari sini
 
     // Private Constructor (Singleton)
     private ScreenManager() {
@@ -32,53 +31,36 @@ public class ScreenManager {
         return instance;
     }
 
-    // --- 1. METHOD WAJIB UNTUK MAIN.JAVA ---
     public JPanel getMainPanel() {
         return mainPanel;
     }
 
-    // --- 2. MENDAFTARKAN LAYAR ---
+    // --- MENDAFTARKAN LAYAR ---
     public void addScreen(String name, JPanel screen) {
         mainPanel.add(screen, name);
         
-        // Auto-detect: Simpan referensi jika tipe layarnya khusus
-        // Ini agar kita bisa memanggil method seperti .startGame() atau .setupStory() nanti
+        // Auto-detect tipe layar untuk disimpan referensinya
         if (screen instanceof GameScreen) {
             this.gameScreenRef = (GameScreen) screen;
-        } else if (screen instanceof StoryScreen) {
-            this.storyScreenRef = (StoryScreen) screen;
         } else if (screen instanceof ResultScreen) {
             this.resultScreenRef = (ResultScreen) screen;
         }
     }
 
-    // --- 3. PINDAH LAYAR (DASAR) ---
+    // --- PINDAH LAYAR ---
     public void showScreen(String name) {
         cardLayout.show(mainPanel, name);
     }
     
-    // --- 4. NAVIGASI KHUSUS GAMEPLAY ---
+    // --- NAVIGASI KHUSUS ---
 
-    // A. TAMPILKAN STORY (Jika Modul punya cerita)
-    public void showStory(ModuleModel module, int level) {
-        // Jika belum ada StoryScreen, buat baru (Lazy Loading)
-        if (storyScreenRef == null) {
-            storyScreenRef = new StoryScreen();
-            addScreen("STORY", storyScreenRef);
-        }
-        
-        storyScreenRef.setupStory(module, level); 
-        showScreen("STORY");
-    }
-    
-    // B. START GAME (Inti Permainan)
+    // A. START GAME (Story akan otomatis dicek di dalam GameScreen)
     public void showGame(ModuleModel module, int level) {
-        // Cek apakah GameScreen sudah didaftarkan di Main.java
         if (gameScreenRef != null) {
             gameScreenRef.startGame(module, level);
             showScreen("GAME");
         } else {
-            // Fallback jika lupa addScreen di Main
+            // Fallback jika lupa addScreen di Main, buat baru
             gameScreenRef = new GameScreen();
             addScreen("GAME", gameScreenRef);
             gameScreenRef.startGame(module, level);
@@ -86,7 +68,7 @@ public class ScreenManager {
         }
     }
     
-    // C. TAMPILKAN HASIL (Result)
+    // B. TAMPILKAN HASIL
     public void showResult(ModuleModel module, int level, int score, int maxScore) {
         if (resultScreenRef == null) {
             resultScreenRef = new ResultScreen();

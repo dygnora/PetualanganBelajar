@@ -5,7 +5,6 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.net.URL;
 
 public class GameVisualizer {
 
@@ -30,13 +29,13 @@ public class GameVisualizer {
             else renderStandard(container, lblInstruction, q);
         }
         else if (moduleId == 2) { // HURUF
-            if (level == 2) renderMathLevel2(container, lblInstruction, q); 
+            if (level == 2) renderMathLevel2(container, lblInstruction, q); // Pakai logika yg sama
             else if (level == 3) renderLetterLevel3(container, lblInstruction, q);
             else renderStandard(container, lblInstruction, q);
         }
         else if (moduleId == 3) { // WARNA
             if (level == 2) lblInstruction.setText("<html><center>" + q.getQuestionText() + "</center></html>");
-            else if (level == 3) renderMathLevel3(container, lblInstruction, q); 
+            else if (level == 3) renderMathLevel3(container, lblInstruction, q); // Pakai logika Math L3 untuk Campur Warna
             else renderStandard(container, lblInstruction, q);
         }
         else if (moduleId == 4) { // BENTUK
@@ -172,7 +171,6 @@ public class GameVisualizer {
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.BOTH; gbc.weightx = 0.5; gbc.weighty = 1.0; gbc.insets = new Insets(0, 10, 0, 10);
         
-        // Panggil helper yang sudah di-update untuk visual balance
         gbc.gridx = 0; container.add(createItemPanel(parts[1].trim(), new Color(230, 240, 255)), gbc);
         gbc.gridx = 1; container.add(createItemPanel(parts[2].trim(), new Color(255, 230, 230)), gbc);
     }
@@ -190,8 +188,9 @@ public class GameVisualizer {
             for (int i = 1; i < parts.length; i++) {
                 String p = parts[i].trim();
                 
-                if (p.equals("+")) {
-                    JLabel lblOp = new JLabel("+"); 
+                // [FIX PENTING] Tambahkan pengecekan tanda kurang (-) di sini!
+                if (p.equals("+") || p.equals("-")) {
+                    JLabel lblOp = new JLabel(p); 
                     lblOp.setFont(FONT_MATH); 
                     lblOp.setForeground(Color.DARK_GRAY);
                     container.add(lblOp);
