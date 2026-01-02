@@ -189,7 +189,7 @@ public class LeaderboardScreen extends JPanel {
         titleLabel.setHorizontalAlignment(SwingConstants.CENTER);
         
         if (titleImage != null) {
-            Image scaled = titleImage.getScaledInstance(400, 240, Image.SCALE_SMOOTH);
+            Image scaled = titleImage.getScaledInstance(500, 300, Image.SCALE_SMOOTH);
             titleLabel.setIcon(new ImageIcon(scaled));
         } else {
             titleLabel.setText("PAPAN JUARA");
@@ -203,8 +203,8 @@ public class LeaderboardScreen extends JPanel {
     private JPanel createStatsPanel() {
         JPanel stats = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 0));
         stats.setOpaque(false);
-        stats.setPreferredSize(new Dimension(800, 80));
-        stats.setBorder(new EmptyBorder(0, 0, 10, 0));
+        stats.setPreferredSize(new Dimension(800, 120));
+        stats.setBorder(new EmptyBorder(30, 0, 10, 0));
 
         totalCard = new StatCard("Total Pemain", "0", "👥", COL_ACCENT_BLUE);
         avgCard = new StatCard("Rata-rata", "0 Poin", "⭐", COL_ACCENT_GOLD);

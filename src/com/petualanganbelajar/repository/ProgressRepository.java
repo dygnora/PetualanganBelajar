@@ -8,27 +8,32 @@ public class ProgressRepository {
     // 1. Cek level tertinggi
     public int getHighestLevelUnlocked(int userId, int moduleId) {
         String sql = "SELECT highest_level_unlocked FROM user_progress WHERE user_id = ? AND module_id = ?";
+        // [FIX] Ensure ResultSet is also in try-with-resources or explicitly closed
         try (Connection conn = DatabaseConnection.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
             pstmt.setInt(1, userId);
             pstmt.setInt(2, moduleId);
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) return rs.getInt("highest_level_unlocked");
+            
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("highest_level_unlocked");
+                }
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
         return 1; // Default Level 1
     }
 
-    // 2. Simpan Skor (DIPERBAIKI: Menggunakan ID)
+    // 2. Simpan Skor
     public void saveScore(int userId, int moduleId, int level, int score) {
-        // Query menggunakan user_id, bukan user_name
         String sql = "INSERT INTO game_results (user_id, module_id, level, score, created_at) VALUES (?, ?, ?, ?, datetime('now'))";
 
         try (Connection conn = DatabaseConnection.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             
-            pstmt.setInt(1, userId);   // Set user_id
+            pstmt.setInt(1, userId);
             pstmt.setInt(2, moduleId);
             pstmt.setInt(3, level);
             pstmt.setInt(4, score);
@@ -47,6 +52,8 @@ public class ProgressRepository {
         if (nextLevel > 4) return;
 
         int currentUnlocked = getHighestLevelUnlocked(userId, moduleId);
+        
+        // Only update if the new level is higher than what's currently unlocked
         if (nextLevel > currentUnlocked) {
             String checkSql = "SELECT id FROM user_progress WHERE user_id = ? AND module_id = ?";
             String updateSql;
@@ -56,9 +63,15 @@ public class ProgressRepository {
                 
                 checkStmt.setInt(1, userId);
                 checkStmt.setInt(2, moduleId);
-                ResultSet rs = checkStmt.executeQuery();
+                
+                boolean exists = false;
+                try (ResultSet rs = checkStmt.executeQuery()) {
+                    if (rs.next()) {
+                        exists = true;
+                    }
+                }
 
-                if (rs.next()) {
+                if (exists) {
                     updateSql = "UPDATE user_progress SET highest_level_unlocked = ? WHERE user_id = ? AND module_id = ?";
                 } else {
                     updateSql = "INSERT INTO user_progress (highest_level_unlocked, user_id, module_id) VALUES (?, ?, ?)";
@@ -78,30 +91,31 @@ public class ProgressRepository {
         }
     }
 
-    // 4. Hitung Total Skor (DIPERBAIKI: Query by user_id)
+    // 4. Hitung Total Skor
     public int calculateTotalScore(int userId) {
         String sql = "SELECT SUM(score) FROM game_results WHERE user_id = ?";
         try (Connection conn = DatabaseConnection.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, userId);
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) return rs.getInt(1);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) return rs.getInt(1);
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
         return 0;
     }
 
-    // 5. Cek Apakah Game Tamat
+    // 5. Cek Apakah Game Tamat (Logic lama)
     public boolean isGameCompleted(int userId) {
         String sql = "SELECT COUNT(*) FROM user_progress WHERE user_id = ? AND highest_level_unlocked >= 4";
         try (Connection conn = DatabaseConnection.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, userId);
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                // Ada 4 modul total. Jika count == 4, berarti tamat.
-                return rs.getInt(1) >= 4;
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) >= 4;
+                }
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -109,19 +123,29 @@ public class ProgressRepository {
         return false;
     }
     
-    // Cek apakah user sudah menamatkan seluruh game (Modul 1-4, Level 3 Selesai)
+    // [FIXED] Cek apakah user sudah menamatkan seluruh game (Modul 1-4, Level 3 Selesai)
     public boolean isGameFullyCompleted(int userId) {
-        String sql = "SELECT COUNT(*) AS total FROM user_progress " +
-                     "WHERE user_id = ? AND highest_level_unlocked > 3"; 
-        // Logic: Jika user punya progress > 3 di 4 modul berbeda, berarti tamat.
-        // Atau cara lebih sederhana: Cek apakah dia punya entry level > 3 untuk modul 1,2,3,4
+        // Instead of calling getHighestLevelUnlocked 4 times (opening/closing 4 connections),
+        // let's do it in one optimized query.
         
-        // Kita pakai cara aman: Cek satu per satu
-        for (int modId = 1; modId <= 4; modId++) {
-            if (getHighestLevelUnlocked(userId, modId) <= 3) {
-                return false; // Ada modul yang belum level 4 (tamat level 3)
+        // Logic: We need to ensure that for modules 1, 2, 3, and 4, the user has unlocked > 3 (meaning level 4 is available/completed).
+        // This query counts how many distinct modules have reached level > 3 for the user.
+        String sql = "SELECT COUNT(DISTINCT module_id) FROM user_progress WHERE user_id = ? AND highest_level_unlocked > 3 AND module_id IN (1, 2, 3, 4)";
+
+        try (Connection conn = DatabaseConnection.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setInt(1, userId);
+            
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    int completedModules = rs.getInt(1);
+                    return completedModules == 4; // True if all 4 modules are completed
+                }
             }
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
-        return true;
+        return false;
     }
 }

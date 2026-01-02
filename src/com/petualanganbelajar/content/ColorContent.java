@@ -12,6 +12,22 @@ public class ColorContent {
         genL3(pstmt);
     }
 
+    // --- TRANSLATION HELPER (NEW) ---
+    private static Map<String, String> getTranslationMap() {
+        Map<String, String> map = new HashMap<>();
+        map.put("APPLE", "APEL");
+        map.put("BANANA", "PISANG");
+        map.put("WHALE", "PAUS");
+        map.put("FROG", "KATAK");
+        map.put("FISH", "IKAN");
+        map.put("GRAPE", "ANGGUR");
+        map.put("DONUT", "DONAT");
+        map.put("BEAR", "BERUANG");
+        map.put("CAT", "KUCING");
+        map.put("RABBIT", "KELINCI");
+        return map;
+    }
+
     // --- HELPER KHUSUS MODUL WARNA ---
     
     private static Map<String, List<String>> getAssetMap() {
@@ -58,6 +74,7 @@ public class ColorContent {
         String[] colorCodes = {"RED", "YELLOW", "BLUE", "GREEN", "ORANGE", "PURPLE", "PINK", "BROWN", "BLACK", "WHITE"};
         String[] colorNames = {"MERAH", "KUNING", "BIRU", "HIJAU", "ORANYE", "UNGU", "MERAH MUDA", "COKELAT", "HITAM", "PUTIH"};
         Map<String, List<String>> assetMap = getAssetMap();
+        Map<String, String> translationMap = getTranslationMap(); // Load translations
 
         List<String> targetDeck = GeneratorUtils.createBalancedDeck(colorCodes, 20);
         
@@ -87,14 +104,20 @@ public class ColorContent {
             
             } else { // Mewarnai (Siluet)
                 String chosenAsset = assetMap.get(targetColor).get(0);
-                String objName = "GAMBAR";
-                try { objName = chosenAsset.split("_")[2].replace(".png","").toUpperCase(); } catch(Exception e){}
                 
-                // [FIXED] Menggunakan %2$s untuk mengambil Nama Warna (parameter ke-2)
+                // [FIXED LOGIC] Extract English name -> Translate to Indonesian
+                String rawName = "GAMBAR";
+                try { 
+                    rawName = chosenAsset.split("_")[2].replace(".png","").toUpperCase(); 
+                } catch(Exception e){}
+                
+                // Translate or keep original if not found
+                String objName = translationMap.getOrDefault(rawName, rawName);
+                
                 String[] tpls = {
-                    "%s ini pucat! Warnai menjadi <b>%s</b>!",    
+                    "%s ini pucat! Warnai menjadi <b>%s</b>!",     
                     "Berikan warna <b>%2$s</b> pada gambar ini!", 
-                    "Ayo warnai %s dengan warna <b>%s</b>!"       
+                    "Ayo warnai %s dengan warna <b>%s</b>!"        
                 };
                 
                 narrative = String.format(tpls[GeneratorUtils.rand.nextInt(tpls.length)], objName, targetName);
@@ -112,7 +135,7 @@ public class ColorContent {
         }
     }
 
-    // --- LEVEL 2: SORTIR WARNA (DIPERBAIKI: PILIH SATU) ---
+    // --- LEVEL 2: SORTIR WARNA ---
     private static void genL2(PreparedStatement pstmt) throws SQLException {
         Map<String, List<String>> assetMap = getAssetMap();
         String[] colorCodes = {"RED", "YELLOW", "BLUE", "GREEN", "ORANGE", "PURPLE", "PINK", "BROWN", "BLACK", "WHITE"};
@@ -124,10 +147,9 @@ public class ColorContent {
             int idx = -1; for(int k=0; k<colorCodes.length; k++) if(colorCodes[k].equals(targetColor)) idx = k;
             String targetName = colorNames[idx];
             
-            // [REVISI NARASI] Menggunakan kalimat tunggal/pilih satu
             String[] tpls = {
                 "Mana gambar yang warnanya <b>%s</b>?", 
-                "Ayo klik benda berwarna <b>%s</b>!", 
+                "Ayo klik gambar berwarna <b>%s</b>!", 
                 "Coba tunjuk, yang mana warna <b>%s</b>?"
             };
             
@@ -135,7 +157,6 @@ public class ColorContent {
             
             String correctImg = assetMap.get(targetColor).get(0);
             
-            // Siapkan Distractor
             List<String> avail = new ArrayList<>(Arrays.asList(colorCodes));
             avail.remove(targetColor); 
             Collections.shuffle(avail);
@@ -146,7 +167,6 @@ public class ColorContent {
             }
             
             if (dists.size() >= 5) {
-                // Gameplay Click: OptA Benar, OptB/C Salah
                 String optA = correctImg; 
                 String optB = dists.get(0) + "," + dists.get(1);
                 String optC = dists.get(2) + "," + dists.get(3) + "," + dists.get(4);
@@ -155,7 +175,7 @@ public class ColorContent {
         }
     }
 
-    // --- LEVEL 3: CAMPUR WARNA (2 & 3 BAHAN) ---
+    // --- LEVEL 3: CAMPUR WARNA ---
     private static void genL3(PreparedStatement pstmt) throws SQLException {
         String[][] recipes = {
             {"RED", "YELLOW", "ORANGE"}, 

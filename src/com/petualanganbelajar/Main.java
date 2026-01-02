@@ -34,7 +34,7 @@ public class Main {
         ScreenManager sm = ScreenManager.getInstance();
 
         // --- DAFTAR SCREEN ---
-         sm.addScreen("TITLE", new TitleScreen()); // Opsional jika belum dipakai
+         sm.addScreen("TITLE", new TitleScreen());
         sm.addScreen("MAIN_MENU", new MainMenuScreen());
         sm.addScreen("PROFILE_SELECT", new ProfileSelectionScreen());
         sm.addScreen("PROFILE_CREATE", new ProfileCreateScreen());
