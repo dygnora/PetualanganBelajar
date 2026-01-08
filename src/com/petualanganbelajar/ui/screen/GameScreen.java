@@ -8,20 +8,26 @@ import com.petualanganbelajar.core.SoundPlayer;
 import com.petualanganbelajar.model.ModuleModel;
 import com.petualanganbelajar.model.QuestionModel;
 import com.petualanganbelajar.model.UserModel;
+import com.petualanganbelajar.repository.LeaderboardRepository;
 import com.petualanganbelajar.repository.ProgressRepository;
 import com.petualanganbelajar.repository.QuestionRepository;
 import com.petualanganbelajar.repository.StoryRepository;
+import com.petualanganbelajar.ui.component.BouncyPauseButton;
+import com.petualanganbelajar.ui.component.GameFeedbackDialog;
+import com.petualanganbelajar.ui.component.GameScoreHUD;
+import com.petualanganbelajar.ui.component.GameLevelHUD;
+import com.petualanganbelajar.ui.component.PauseMenuDialog;
+import com.petualanganbelajar.ui.component.StoryDialogPanel;
+import com.petualanganbelajar.ui.component.UserProfileHUD;
 import com.petualanganbelajar.util.DialogScene;
 import com.petualanganbelajar.util.GameVisualizer;
 import com.petualanganbelajar.util.UIHelper;
-import com.petualanganbelajar.ui.component.GameFeedbackDialog;
-import com.petualanganbelajar.ui.component.ModernPauseButton;
-import com.petualanganbelajar.ui.component.PauseMenuDialog;
-import com.petualanganbelajar.ui.component.StoryDialogPanel;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.awt.geom.GeneralPath;
 import java.net.URL;
 import java.util.ArrayList;
@@ -38,42 +44,118 @@ public class GameScreen extends JPanel {
     private int currentQuestionIndex = 0;
     private int score = 0;
     private int maxScore = 0;
-    
-    private boolean isFirstAttempt = true; 
-    private int pointsPerQuestion = 10; 
+    private int baseTotalXP = 0;
+
+    private boolean isFirstAttempt = true;
+    private int pointsPerQuestion = 10;
 
     private boolean isStoryMode = false;
-    private Image moduleBgImage;          
-    
-    private boolean isEpilogueMode = false; 
-    private Image epilogueBgImage;       
+    private Image moduleBgImage;
+
+    private boolean isEpilogueMode = false;
+    private Image epilogueBgImage;
 
     private String currentDisplayPattern;
     private Queue<String> answerQueue;
 
-    private JLayeredPane layeredPane; 
-    private JPanel gameContentPanel;  
-    private StoryDialogPanel storyPanel; 
+    private JLayeredPane layeredPane;
+    private JPanel gameContentPanel;
+    private StoryDialogPanel storyPanel;
 
-    private JLabel lblUserInfo, lblLevelInfo, lblScore, lblInstruction;
+    // [MODULAR COMPONENTS]
+    private UserProfileHUD userProfileHUD;
+    private GameScoreHUD gameScoreHUD;
+    private GameLevelHUD levelHUD;
+    private BouncyPauseButton btnPause;
+
+    private JLabel lblInstruction;
     private JPanel visualContainer, answerAreaPanel;
     private ModernBoardPanel questionPanel;
-    
+    private JPanel headerPanel;
+
     private final QuestionRepository questionRepo = new QuestionRepository();
     private final ProgressRepository progressRepo = new ProgressRepository();
     private final StoryRepository storyRepo = new StoryRepository();
+    private final LeaderboardRepository xpRepo = new LeaderboardRepository();
     private final SoundPlayer soundPlayer = SoundPlayer.getInstance();
-    
+
     private Color themePrimaryColor, themeBgTopColor, themeBgBottomColor, themeAccentColor;
     private Image imgGrass;
+
+    // --- VARIABEL SKALA (SCALABLE) ---
+    private final float BASE_W = 1920f;
+    private final float BASE_H = 1080f;
+    private float scaleFactor = 1.0f;
 
     public GameScreen() {
         setLayout(new BorderLayout());
         imgGrass = UIHelper.loadRawImage("grass_decoration.png");
         loadEpilogueBackground();
         initUI();
+        
+        // --- LISTENER RESIZE ---
+        this.addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentResized(ComponentEvent e) {
+                // 1. Hitung ulang bound layer
+                int w = getWidth();
+                int h = getHeight();
+                layeredPane.setBounds(0, 0, w, h);
+                gameContentPanel.setBounds(0, 0, w, h);
+                storyPanel.setBounds(0, 0, w, h);
+                
+                // 2. Hitung Skala & Update Layout
+                calculateScaleFactor();
+                updateResponsiveLayout();
+                
+                revalidate(); 
+                repaint();
+            }
+        });
     }
     
+    // --- [SCALABLE] HITUNG FAKTOR SKALA ---
+    private void calculateScaleFactor() {
+        if (getWidth() <= 0 || getHeight() <= 0) return;
+        float sW = (float) getWidth() / BASE_W;
+        float sH = (float) getHeight() / BASE_H;
+        this.scaleFactor = Math.min(sW, sH); // Ambil rasio terkecil agar proporsional
+        if (this.scaleFactor < 0.5f) this.scaleFactor = 0.5f; // Batas minimum
+    }
+
+    // --- [SCALABLE] UPDATE UKURAN KOMPONEN ---
+    private void updateResponsiveLayout() {
+        // 1. Update Ukuran Font Instruksi
+        if (lblInstruction != null) {
+            int newFontSize = Math.max(24, (int)(48 * scaleFactor));
+            lblInstruction.setFont(new Font("Comic Sans MS", Font.BOLD, newFontSize));
+        }
+
+        // 2. Update Padding Header
+        if (headerPanel != null) {
+            int topPad = (int)(20 * scaleFactor);
+            int sidePad = (int)(30 * scaleFactor);
+            headerPanel.setBorder(new EmptyBorder(topPad, sidePad, 5, sidePad));
+        }
+
+        // 3. Update Ukuran HUD (Idealnya class HUD punya method setScale, tapi kita resize panelnya saja)
+        // Kita bisa mengatur PreferredSize dari container HUD jika diperlukan
+        if (levelHUD != null) {
+            // Skala level HUD (misal basis lebar 320 -> dikali scale)
+            int hudW = (int)(320 * scaleFactor);
+            int hudH = (int)(90 * scaleFactor);
+            levelHUD.setPreferredSize(new Dimension(hudW, hudH));
+            // Anda mungkin perlu menambahkan method setScale di dalam class GameLevelHUD
+            // untuk mengubah ukuran font di dalamnya juga.
+        }
+        
+        // 4. Update Area Soal (Padding)
+        if (questionPanel != null) {
+             int qPad = (int)(30 * scaleFactor);
+             questionPanel.setBorder(new EmptyBorder(qPad, qPad, qPad, qPad));
+        }
+    }
+
     private void loadEpilogueBackground() {
         try {
             URL url = getClass().getResource("/images/bg_epilogue.png");
@@ -83,61 +165,55 @@ public class GameScreen extends JPanel {
 
     private void initUI() {
         layeredPane = new JLayeredPane();
-        layeredPane.setOpaque(false); 
+        layeredPane.setOpaque(false);
         add(layeredPane, BorderLayout.CENTER);
 
         gameContentPanel = new JPanel(new BorderLayout());
-        gameContentPanel.setOpaque(false); 
-        setupGameContentUI(); 
+        gameContentPanel.setOpaque(false);
+        setupGameContentUI();
         layeredPane.add(gameContentPanel, JLayeredPane.DEFAULT_LAYER);
 
         storyPanel = new StoryDialogPanel();
         storyPanel.setVisible(false);
         layeredPane.add(storyPanel, JLayeredPane.PALETTE_LAYER);
-
-        this.addComponentListener(new java.awt.event.ComponentAdapter() {
-            @Override
-            public void componentResized(java.awt.event.ComponentEvent e) {
-                int w = getWidth();
-                int h = getHeight();
-                layeredPane.setBounds(0, 0, w, h);
-                gameContentPanel.setBounds(0, 0, w, h);
-                storyPanel.setBounds(0, 0, w, h);
-                revalidate(); repaint();
-            }
-        });
     }
 
     private void setupGameContentUI() {
-        JPanel headerPanel = new JPanel(new BorderLayout());
+        // --- HEADER PANEL ---
+        headerPanel = new JPanel(new BorderLayout());
         headerPanel.setOpaque(false);
-        headerPanel.setBorder(new EmptyBorder(20, 20, 10, 20));
+        headerPanel.setBorder(new EmptyBorder(10, 20, 5, 20));
 
-        JPanel userBadge = createStatBadge("Player", "user_icon.png", false);
-        lblUserInfo = (JLabel) ((ModernBadgePanel) userBadge).getComponent(0);
+        // 1. LEFT: Profile HUD
+        userProfileHUD = new UserProfileHUD();
+        headerPanel.add(userProfileHUD, BorderLayout.WEST);
 
-        ModernBadgePanel levelBadge = new ModernBadgePanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
-        lblLevelInfo = new JLabel("LEVEL 1"); 
-        lblLevelInfo.setFont(new Font("Comic Sans MS", Font.BOLD, 36)); lblLevelInfo.setForeground(Color.WHITE);
-        levelBadge.add(lblLevelInfo);
+        // 2. CENTER: Level Info (Modular)
+        levelHUD = new GameLevelHUD();
+        JPanel centerWrapper = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+        centerWrapper.setOpaque(false);
+        centerWrapper.add(levelHUD);
+        headerPanel.add(centerWrapper, BorderLayout.CENTER);
 
-        JPanel rightContainer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
-        rightContainer.setOpaque(false);
-        JPanel scoreBadge = createStatBadge("0", "star_icon.png", true);
-        lblScore = (JLabel) ((ModernBadgePanel) scoreBadge).getComponent(0);
-        ModernPauseButton btnPause = new ModernPauseButton();
+        // 3. RIGHT: Score HUD + Pause
+        JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
+        rightPanel.setOpaque(false);
+
+        gameScoreHUD = new GameScoreHUD();
+        btnPause = new BouncyPauseButton();
         btnPause.addActionListener(e -> showPauseMenu());
 
-        rightContainer.add(scoreBadge); rightContainer.add(btnPause);
-        
-        JPanel leftW = new JPanel(new FlowLayout(FlowLayout.LEFT, 0,0)); leftW.setOpaque(false); leftW.add(userBadge);
-        JPanel centW = new JPanel(new FlowLayout(FlowLayout.CENTER, 0,0)); centW.setOpaque(false); centW.add(levelBadge);
+        rightPanel.add(gameScoreHUD);
+        rightPanel.add(btnPause);
 
-        headerPanel.add(leftW, BorderLayout.WEST); headerPanel.add(centW, BorderLayout.CENTER); headerPanel.add(rightContainer, BorderLayout.EAST);
+        headerPanel.add(rightPanel, BorderLayout.EAST);
         gameContentPanel.add(headerPanel, BorderLayout.NORTH);
 
+        // --- GAME AREA ---
         JPanel gameContainer = new JPanel(new BorderLayout());
-        gameContainer.setOpaque(false); gameContainer.setBorder(new EmptyBorder(0, 80, 10, 80));
+        gameContainer.setOpaque(false);
+        // Padding responsif awal
+        gameContainer.setBorder(new EmptyBorder(0, 80, 10, 80));
 
         questionPanel = new ModernBoardPanel();
         questionPanel.setLayout(new GridBagLayout());
@@ -157,31 +233,52 @@ public class GameScreen extends JPanel {
         gbc.gridy = 1; gbc.insets = new Insets(0, 0, 0, 0);
         questionPanel.add(visualContainer, gbc);
 
-        JPanel boardWrapper = new JPanel(new GridBagLayout()); boardWrapper.setOpaque(false);
-        GridBagConstraints gbcW = new GridBagConstraints(); gbcW.weightx = 1; gbcW.weighty = 1; gbcW.fill = GridBagConstraints.BOTH; gbcW.insets = new Insets(10, 0, 10, 0);
+        JPanel boardWrapper = new JPanel(new GridBagLayout());
+        boardWrapper.setOpaque(false);
+        GridBagConstraints gbcW = new GridBagConstraints();
+        gbcW.weightx = 1; gbcW.weighty = 1;
+        gbcW.fill = GridBagConstraints.BOTH;
+        gbcW.insets = new Insets(10, 0, 10, 0);
         boardWrapper.add(questionPanel, gbcW);
         gameContainer.add(boardWrapper, BorderLayout.CENTER);
 
         answerAreaPanel = new JPanel();
-        answerAreaPanel.setOpaque(false); answerAreaPanel.setBorder(new EmptyBorder(15, 0, 25, 0));
+        answerAreaPanel.setOpaque(false);
+        answerAreaPanel.setBorder(new EmptyBorder(15, 0, 25, 0));
         gameContainer.add(answerAreaPanel, BorderLayout.SOUTH);
+
         gameContentPanel.add(gameContainer, BorderLayout.CENTER);
+        
+        // Panggil update layout sekali di awal
+        SwingUtilities.invokeLater(() -> {
+            calculateScaleFactor();
+            updateResponsiveLayout();
+        });
     }
 
     public void startGame(ModuleModel module, int level) {
         this.currentModule = module;
         this.currentLevel = level;
+        
+        // 1. Terapkan Tema Warna (Dynamic Theme)
         applyTheme(module.getId());
         loadModuleBackground(module.getId());
-        
+
         this.score = 0;
         this.currentQuestionIndex = 0;
         this.pointsPerQuestion = (level <= 0) ? 10 : level * 10;
 
         UserModel u = GameState.getCurrentUser();
-        lblUserInfo.setText(u != null ? u.getName() : "Teman");
-        lblLevelInfo.setText(module.getName() + " - LVL " + level);
-        lblScore.setText("0");
+        if (u != null) {
+            this.baseTotalXP = xpRepo.getTotalScoreByUserId(u.getId());
+        } else {
+            this.baseTotalXP = 0;
+        }
+
+        // 2. Update Informasi di HUD
+        userProfileHUD.updateProfile(baseTotalXP + score);
+        gameScoreHUD.updateScore(score);
+        levelHUD.setInfo(module.getName(), level);
 
         List<QuestionModel> allQuestions = questionRepo.getQuestionsByModule(module.getId(), level);
         if (allQuestions.isEmpty()) {
@@ -192,13 +289,112 @@ public class GameScreen extends JPanel {
         Collections.shuffle(allQuestions);
         int limit = Math.min(allQuestions.size(), 15);
         this.questionList = new ArrayList<>(allQuestions.subList(0, limit));
-        
+
         this.maxScore = this.questionList.size() * pointsPerQuestion;
-        
+
         playModuleBGM();
         checkAndPlayIntroStory();
     }
-    
+
+    // --- LOGIC DYNAMIC THEME (Warna HUD berubah sesuai modul) ---
+    private void applyTheme(int moduleId) {
+        Color[] profileColors;
+        Color levelTop, levelBottom, levelOutline, levelTextColor;
+        Color scoreTop, scoreBottom;
+
+        switch (moduleId) {
+            case 1: // MODUL ANGKA (Alam/Hijau)
+                themePrimaryColor = new Color(46, 139, 87);
+                themeBgTopColor = new Color(200, 255, 200);
+                themeBgBottomColor = new Color(240, 255, 240);
+                themeAccentColor = new Color(34, 139, 34, 50);
+                
+                profileColors = new Color[]{ new Color(255, 215, 0), new Color(154, 205, 50), new Color(210, 180, 140) };
+                
+                levelTop = new Color(255, 140, 0); 
+                levelBottom = new Color(205, 92, 92); 
+                levelOutline = new Color(139, 69, 19); 
+                levelTextColor = Color.WHITE;
+                
+                scoreTop = new Color(255, 99, 71); scoreBottom = new Color(178, 34, 34);
+                break;
+
+            case 2: // MODUL HURUF (Langit/Biru)
+                themePrimaryColor = new Color(30, 144, 255);
+                themeBgTopColor = new Color(135, 206, 250);
+                themeBgBottomColor = new Color(240, 248, 255);
+                themeAccentColor = new Color(255, 255, 255, 120);
+
+                profileColors = new Color[]{ 
+                    new Color(255, 255, 255), 
+                    new Color(224, 255, 255), 
+                    new Color(176, 224, 230) 
+                };
+                
+                levelTop = new Color(65, 105, 225);     
+                levelBottom = new Color(0, 0, 139);     
+                levelOutline = new Color(255, 255, 255); 
+                levelTextColor = Color.WHITE;            
+                
+                scoreTop = new Color(255, 215, 0); scoreBottom = new Color(255, 140, 0);
+                break;
+
+            case 3: // MODUL WARNA (Artistik/Ungu/Pink)
+                themePrimaryColor = new Color(255, 112, 67);
+                themeBgTopColor = new Color(255, 224, 178);
+                themeBgBottomColor = new Color(255, 243, 224);
+                themeAccentColor = new Color(255, 255, 255, 100);
+                
+                profileColors = new Color[]{ Color.MAGENTA, new Color(255, 105, 180), Color.CYAN };
+                
+                levelTop = new Color(218, 112, 214);   
+                levelBottom = new Color(153, 50, 204); 
+                levelOutline = new Color(75, 0, 130);  
+                levelTextColor = Color.WHITE;
+                
+                scoreTop = new Color(0, 255, 255); scoreBottom = new Color(0, 128, 128);
+                break;
+                
+            case 4: // MODUL BENTUK (Geometris/Kuning/Oranye)
+                themePrimaryColor = new Color(255, 165, 0);
+                themeBgTopColor = new Color(255, 250, 205);
+                themeBgBottomColor = new Color(255, 228, 181);
+                themeAccentColor = new Color(255, 140, 0, 50);
+                
+                profileColors = new Color[]{ new Color(100, 149, 237), new Color(65, 105, 225) }; 
+                
+                levelTop = new Color(255, 69, 0); 
+                levelBottom = new Color(139, 0, 0); 
+                levelOutline = new Color(100, 0, 0); 
+                levelTextColor = Color.WHITE;
+                
+                scoreTop = new Color(50, 205, 50); scoreBottom = new Color(0, 100, 0);
+                break;
+
+            default: 
+                themePrimaryColor = new Color(70, 130, 180);
+                themeBgTopColor = new Color(200, 230, 255);
+                themeBgBottomColor = Color.WHITE;
+                themeAccentColor = new Color(0,0,0,20);
+                
+                profileColors = new Color[]{Color.LIGHT_GRAY, Color.GRAY};
+                levelTop = Color.LIGHT_GRAY; levelBottom = Color.GRAY; 
+                levelOutline = Color.BLACK; levelTextColor = Color.WHITE;
+                scoreTop = Color.ORANGE; scoreBottom = Color.RED;
+        }
+        
+        if (userProfileHUD != null) userProfileHUD.setProfileTheme(profileColors);
+        if (levelHUD != null) levelHUD.setTheme(levelTop, levelBottom, levelOutline, levelTextColor);
+        if (gameScoreHUD != null) gameScoreHUD.setScoreTheme(scoreTop, scoreBottom);
+        
+        repaint();
+    }
+
+    private void updateHUD() {
+        gameScoreHUD.updateScore(score);
+        userProfileHUD.updateProfile(baseTotalXP + score);
+    }
+
     private void playModuleBGM() {
         String bgmFile = "bgm_menu.wav";
         if (currentModule != null) {
@@ -247,10 +443,10 @@ public class GameScreen extends JPanel {
 
         if (active) {
             gameContentPanel.setVisible(false);
-            storyPanel.setVisible(true);       
+            storyPanel.setVisible(true);        
         } else {
             gameContentPanel.setVisible(true);  
-            storyPanel.setVisible(false);       
+            storyPanel.setVisible(false);        
         }
         repaint();
     }
@@ -281,13 +477,14 @@ public class GameScreen extends JPanel {
             for (int y = 0; y < h; y += 60) for (int x = (y % 120 == 0) ? 0 : 30; x < w; x += 60) g2.fillOval(x, y, 10, 10);
             
             if (imgGrass != null) { 
-                int grassW = 200; int grassH = 120; 
+                int grassW = (int)(200 * scaleFactor); int grassH = (int)(120 * scaleFactor); 
                 for (int x = 0; x < w; x += grassW) g2.drawImage(imgGrass, x, h - grassH, grassW, grassH, null); 
             }
             
             g2.setColor(themePrimaryColor); 
-            GeneralPath path = new GeneralPath(); path.moveTo(0, 0); path.lineTo(0, 90);
-            for (int x = 0; x < w; x += 100) path.quadTo(x + 50, 105, x + 100, 90);
+            GeneralPath path = new GeneralPath(); path.moveTo(0, 0); path.lineTo(0, (int)(90 * scaleFactor));
+            int curveW = (int)(100 * scaleFactor); int curveH = (int)(105 * scaleFactor); int curveEnd = (int)(90 * scaleFactor);
+            for (int x = 0; x < w; x += curveW) path.quadTo(x + (curveW/2), curveH, x + curveW, curveEnd);
             path.lineTo(w, 0); path.closePath();
             g2.setColor(new Color(0,0,0,30)); g2.translate(0, 5); g2.fill(path); g2.translate(0, -5);
             g2.setColor(themePrimaryColor); g2.fill(path);
@@ -331,13 +528,10 @@ public class GameScreen extends JPanel {
     private void checkEpilogue(int userId) {
         if (progressRepo.isGameFullyCompleted(userId)) {
             if (!storyRepo.hasSeenStory(userId, 0, 0, "EPILOGUE")) {
-                
                 soundPlayer.playBGM("bgm_ending.wav");
-
                 isEpilogueMode = true;
                 setStoryMode(true); 
                 repaint(); 
-                
                 List<DialogScene> epilogue = StoryDataManager.getEpilogueStory();
                 storyPanel.startStory(epilogue, () -> {
                     storyRepo.markStoryAsSeen(userId, 0, 0, "EPILOGUE");
@@ -396,9 +590,14 @@ public class GameScreen extends JPanel {
             soundPlayer.playSFX("correct.wav");
             revealRealImage(q);
             int earned = 0; String msgText = ""; String name = getPlayerName();
-            if (isFirstAttempt) { earned = pointsPerQuestion; score += earned; msgText = "Kamu dapat +" + earned + " Poin!"; } 
+            if (isFirstAttempt) { 
+                earned = pointsPerQuestion; 
+                score += earned; 
+                msgText = "Kamu dapat +" + earned + " Poin!"; 
+                updateHUD(); 
+            } 
             else { msgText = "Hebat! Tapi +0 Poin karena tadi sempat salah."; }
-            lblScore.setText(String.valueOf(score));
+            
             Window window = SwingUtilities.getWindowAncestor(this);
             new GameFeedbackDialog(window, "Hebat " + name + "!", msgText, GameFeedbackDialog.TYPE_SUCCESS).setVisible(true);
             Timer t = new Timer(500, e -> { currentQuestionIndex++; showQuestion(); });
@@ -421,9 +620,14 @@ public class GameScreen extends JPanel {
             GameVisualizer.renderSequenceMulti(visualContainer, lblInstruction, currentDisplayPattern);
             if (answerQueue.isEmpty()) {
                 int earned = 0; String msgText = ""; String name = getPlayerName();
-                if (isFirstAttempt) { earned = pointsPerQuestion; score += earned; msgText = "Kamu dapat +" + earned + " Poin!"; } 
+                if (isFirstAttempt) { 
+                    earned = pointsPerQuestion; 
+                    score += earned; 
+                    msgText = "Kamu dapat +" + earned + " Poin!"; 
+                    updateHUD(); 
+                } 
                 else { msgText = "Lengkap! Tapi +0 Poin karena tadi ada yang salah."; }
-                lblScore.setText(String.valueOf(score));
+                
                 Window window = SwingUtilities.getWindowAncestor(this);
                 new GameFeedbackDialog(window, "Hebat " + name + "!", msgText, GameFeedbackDialog.TYPE_SUCCESS).setVisible(true);
                 Timer t = new Timer(500, x -> { currentQuestionIndex++; showQuestion(); }); t.setRepeats(false); t.start();
@@ -468,28 +672,19 @@ public class GameScreen extends JPanel {
         new PauseMenuDialog(topFrame).setVisible(true);
     }
 
-    private void applyTheme(int moduleId) {
-        switch (moduleId) {
-            case 1: themePrimaryColor = new Color(46, 139, 87); themeBgTopColor = new Color(200, 255, 200); themeBgBottomColor = new Color(240, 255, 240); themeAccentColor = new Color(34, 139, 34, 50); break;
-            case 2: themePrimaryColor = new Color(30, 144, 255); themeBgTopColor = new Color(135, 206, 250); themeBgBottomColor = new Color(240, 248, 255); themeAccentColor = new Color(255, 255, 255, 100); break;
-            case 3: themePrimaryColor = new Color(255, 112, 67); themeBgTopColor = new Color(255, 224, 178); themeBgBottomColor = new Color(255, 243, 224); themeAccentColor = new Color(255, 255, 255, 100); break;
-            default: themePrimaryColor = new Color(70, 130, 180); themeBgTopColor = new Color(200, 230, 255); themeBgBottomColor = Color.WHITE; themeAccentColor = new Color(0,0,0,20);
-        }
-    }
-    
-    private JPanel createStatBadge(String d, String i, boolean r) { 
-        ModernBadgePanel b = new ModernBadgePanel(new FlowLayout(r?FlowLayout.RIGHT:FlowLayout.LEFT,0,0)); 
-        JLabel l=new JLabel(d); l.setFont(new Font("Comic Sans MS", Font.BOLD, 20)); l.setForeground(Color.WHITE);
-        ImageIcon ic=UIHelper.loadIcon(i,40,40); 
-        if(ic!=null){l.setIcon(ic);l.setIconTextGap(12);l.setHorizontalTextPosition(r?SwingConstants.LEFT:SwingConstants.RIGHT);l.setVerticalTextPosition(SwingConstants.CENTER);} 
-        b.add(l); return b; 
-    }
-    class ModernBadgePanel extends JPanel {
-        public ModernBadgePanel(LayoutManager l){setLayout(l);setOpaque(false);setBorder(new EmptyBorder(8,15,12,15));}
-        @Override protected void paintComponent(Graphics g){Graphics2D g2=(Graphics2D)g.create();g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);int w=getWidth(),h=getHeight();g2.setColor(new Color(0,0,0,50));g2.fillRoundRect(2,6,w-4,h-4,h-4,h-4);g2.setColor(Color.WHITE);g2.fillRoundRect(0,0,w,h-4,h-4,h-4);g2.setColor(themePrimaryColor.darker());g2.fillRoundRect(4,4,w-8,h-12,h-4,h-4);g2.setPaint(new GradientPaint(0,0,new Color(255,255,255,80),0,h/2,new Color(255,255,255,0)));g2.fillRoundRect(6,6,w-12,h-4,h-4,h-4);g2.dispose();}
-    }
     class ModernBoardPanel extends JPanel {
         public ModernBoardPanel(){setOpaque(false);}
-        @Override protected void paintComponent(Graphics g){Graphics2D g2=(Graphics2D)g.create();g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);int w=getWidth(),h=getHeight();g2.setColor(new Color(0,0,0,40));g2.fillRoundRect(8,8,w-16,h-16,50,50);g2.setColor(Color.WHITE);g2.fillRoundRect(0,0,w-8,h-8,50,50);g2.setColor(themePrimaryColor);g2.setStroke(new BasicStroke(8));g2.drawRoundRect(4,4,w-16,h-16,50,50);g2.setColor(Color.WHITE);g2.setStroke(new BasicStroke(2));g2.drawRoundRect(6,6,w-20,h-20,45,45);g2.dispose();}
+        @Override protected void paintComponent(Graphics g){
+            Graphics2D g2=(Graphics2D)g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
+            int w=getWidth(),h=getHeight();
+            // Skala radius round rect
+            int rad = (int)(50 * scaleFactor);
+            g2.setColor(new Color(0,0,0,40));g2.fillRoundRect(8,8,w-16,h-16,rad,rad);
+            g2.setColor(Color.WHITE);g2.fillRoundRect(0,0,w-8,h-8,rad,rad);
+            g2.setColor(themePrimaryColor);g2.setStroke(new BasicStroke(8));g2.drawRoundRect(4,4,w-16,h-16,rad,rad);
+            g2.setColor(Color.WHITE);g2.setStroke(new BasicStroke(2));g2.drawRoundRect(6,6,w-20,h-20,rad-5,rad-5);
+            g2.dispose();
+        }
     }
 }

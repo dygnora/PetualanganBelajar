@@ -8,12 +8,14 @@ import com.petualanganbelajar.model.UserModel;
 import com.petualanganbelajar.repository.UserRepository;     
 import com.petualanganbelajar.util.LevelManager;             
 import com.petualanganbelajar.db.DatabaseConnection;
-import com.petualanganbelajar.ui.component.LevelUpDialog; // <--- IMPORT BARU
+import com.petualanganbelajar.ui.component.LevelUpDialog;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.net.URL;
@@ -28,6 +30,8 @@ public class ResultScreen extends JPanel {
     private Image starBrightImg; 
     private Image starDarkImg;    
 
+    // Komponen UI
+    private JPanel resultCard;
     private JLabel lblTitle;
     private JLabel lblScore;
     private JPanel starsPanel;
@@ -37,8 +41,10 @@ public class ResultScreen extends JPanel {
     private ModernButton btnRetry;
     private ModernButton btnModuleMenu;
 
-    private final Font FONT_TITLE = new Font("Comic Sans MS", Font.BOLD, 48);
-    private final Font FONT_SCORE = new Font("Comic Sans MS", Font.BOLD, 28);
+    // Variabel Responsif
+    private final float BASE_W = 1920f;
+    private final float BASE_H = 1080f;
+    private float scaleFactor = 1.0f;
     
     private final UserRepository userRepo = new UserRepository();
     
@@ -46,6 +52,59 @@ public class ResultScreen extends JPanel {
         setLayout(new BorderLayout());
         loadAssets(); 
         initUI();
+        
+        // Listener untuk Auto-Scaling
+        this.addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentResized(ComponentEvent e) {
+                calculateScaleFactor();
+                updateResponsiveLayout();
+            }
+        });
+    }
+
+    private void calculateScaleFactor() {
+        if (getWidth() <= 0 || getHeight() <= 0) return;
+        float sW = (float) getWidth() / BASE_W;
+        float sH = (float) getHeight() / BASE_H;
+        this.scaleFactor = Math.min(sW, sH);
+        if (this.scaleFactor < 0.5f) this.scaleFactor = 0.5f;
+    }
+
+    private void updateResponsiveLayout() {
+        if (resultCard == null) return;
+
+        // 1. Update Padding Card
+        int padV = (int)(40 * scaleFactor);
+        int padH = (int)(50 * scaleFactor);
+        resultCard.setBorder(new EmptyBorder(padV, padH, padV, padH));
+
+        // 2. Update Font Judul & Skor
+        lblTitle.setFont(new Font("Comic Sans MS", Font.BOLD, (int)(48 * scaleFactor)));
+        lblScore.setFont(new Font("Comic Sans MS", Font.BOLD, (int)(28 * scaleFactor)));
+
+        // 3. Update Ukuran Tombol
+        if (btnNextLevel != null) btnNextLevel.updateScale(scaleFactor);
+        if (btnRetry != null) btnRetry.updateScale(scaleFactor);
+        if (btnModuleMenu != null) btnModuleMenu.updateScale(scaleFactor);
+
+        // 4. Update Ukuran Bintang
+        if (starsPanel != null) {
+            // Lebar panel bintang menyesuaikan
+            starsPanel.setMaximumSize(new Dimension((int)(450*scaleFactor), (int)(150*scaleFactor)));
+            // Jarak antar bintang
+            ((GridLayout)starsPanel.getLayout()).setHgap((int)(15*scaleFactor));
+            
+            // Resize panel bintang di dalamnya
+            for (Component c : starsPanel.getComponents()) {
+                if (c instanceof StarImagePanel) {
+                    ((StarImagePanel)c).setPreferredSize(new Dimension((int)(120*scaleFactor), (int)(120*scaleFactor)));
+                }
+            }
+        }
+
+        revalidate();
+        repaint();
     }
 
     private void loadAssets() {
@@ -64,37 +123,41 @@ public class ResultScreen extends JPanel {
     }
 
     private void initUI() {
-        JPanel resultCard = new JPanel() {
+        resultCard = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 int w = getWidth(); int h = getHeight();
-                g2.setColor(new Color(0,0,0,60)); g2.fillRoundRect(5, 5, w-10, h-10, 50, 50);
-                g2.setColor(new Color(255, 255, 255, 240)); g2.fillRoundRect(0, 0, w-5, h-5, 50, 50);
-                g2.setColor(Color.WHITE); g2.setStroke(new BasicStroke(3)); g2.drawRoundRect(0, 0, w-5, h-5, 50, 50);
+                int arc = (int)(50 * scaleFactor); // Arc responsif
+                
+                g2.setColor(new Color(0,0,0,60)); 
+                g2.fillRoundRect((int)(5*scaleFactor), (int)(5*scaleFactor), w-(int)(10*scaleFactor), h-(int)(10*scaleFactor), arc, arc);
+                
+                g2.setColor(new Color(255, 255, 255, 240)); 
+                g2.fillRoundRect(0, 0, w-(int)(5*scaleFactor), h-(int)(5*scaleFactor), arc, arc);
+                
+                g2.setColor(Color.WHITE); 
+                g2.setStroke(new BasicStroke(3 * scaleFactor)); 
+                g2.drawRoundRect(0, 0, w-(int)(5*scaleFactor), h-(int)(5*scaleFactor), arc, arc);
                 g2.dispose();
             }
         };
         resultCard.setOpaque(false);
         resultCard.setLayout(new BoxLayout(resultCard, BoxLayout.Y_AXIS));
-        resultCard.setBorder(new EmptyBorder(40, 50, 40, 50));
         
         JPanel cardWrapper = new JPanel(new GridBagLayout());
         cardWrapper.setOpaque(false);
         cardWrapper.add(resultCard);
 
         lblTitle = new JLabel("SELESAI!", SwingConstants.CENTER);
-        lblTitle.setFont(FONT_TITLE);
         lblTitle.setAlignmentX(CENTER_ALIGNMENT);
         
-        starsPanel = new JPanel(new GridLayout(1, 3, 15, 0));
+        starsPanel = new JPanel(new GridLayout(1, 3));
         starsPanel.setOpaque(false);
-        starsPanel.setMaximumSize(new Dimension(450, 150));
         starsPanel.setAlignmentX(CENTER_ALIGNMENT);
         
         lblScore = new JLabel("SKOR: 0", SwingConstants.CENTER);
-        lblScore.setFont(FONT_SCORE);
         lblScore.setForeground(new Color(100, 100, 100));
         lblScore.setAlignmentX(CENTER_ALIGNMENT);
 
@@ -122,7 +185,7 @@ public class ResultScreen extends JPanel {
         });
 
         resultCard.add(lblTitle);
-        resultCard.add(Box.createVerticalStrut(20));
+        resultCard.add(Box.createVerticalStrut(20)); // Spacer statis, nanti akan direfresh layoutnya
         resultCard.add(starsPanel);
         resultCard.add(Box.createVerticalStrut(20));
         resultCard.add(lblScore);
@@ -130,6 +193,18 @@ public class ResultScreen extends JPanel {
         resultCard.add(buttonsPanel);
 
         add(cardWrapper, BorderLayout.CENTER);
+    }
+
+    // --- Override setVisible agar layout terupdate saat layar muncul ---
+    @Override
+    public void setVisible(boolean aFlag) {
+        super.setVisible(aFlag);
+        if (aFlag) {
+            SwingUtilities.invokeLater(() -> {
+                calculateScaleFactor();
+                updateResponsiveLayout();
+            });
+        }
     }
 
     public void showResult(ModuleModel module, int level, int score, int maxScore) {
@@ -159,18 +234,20 @@ public class ResultScreen extends JPanel {
         }
 
         buttonsPanel.removeAll();
+        // Gunakan Box.createRigidArea agar bisa disesuaikan ukurannya nanti
         boolean isPassed = percentage >= 60;
         
         if (isPassed && level < 3 && !module.getName().equalsIgnoreCase("EPILOGUE")) {
             btnNextLevel.setText("LANJUT KE LEVEL " + (level + 1));
             buttonsPanel.add(btnNextLevel);
-            buttonsPanel.add(Box.createVerticalStrut(15));
+            buttonsPanel.add(Box.createRigidArea(new Dimension(0, (int)(15*scaleFactor))));
         }
         buttonsPanel.add(btnRetry);
-        buttonsPanel.add(Box.createVerticalStrut(15));
+        buttonsPanel.add(Box.createRigidArea(new Dimension(0, (int)(15*scaleFactor))));
         buttonsPanel.add(btnModuleMenu);
 
-        revalidate(); repaint();
+        // Panggil update layout lagi untuk memastikan posisi benar
+        updateResponsiveLayout(); 
         
         if (score > 0) {
             processLevelUp(module.getId(), level, score);
@@ -191,12 +268,10 @@ public class ResultScreen extends JPanel {
             currentUser.setLevel(newLevel);
             
             SwingUtilities.invokeLater(() -> {
-                // Pemanggilan LevelUpDialog sekarang dari class terpisah
                 LevelUpDialog dialog = new LevelUpDialog((Frame) SwingUtilities.getWindowAncestor(this), newLevel);
                 dialog.setVisible(true);
                 playSound("levelup"); 
             });
-            
             System.out.println("LEVEL UP! " + oldLevel + " -> " + newLevel);
         }
     }
@@ -255,7 +330,6 @@ public class ResultScreen extends JPanel {
         public StarImagePanel(Image img) {
             this.img = img;
             setOpaque(false);
-            setPreferredSize(new Dimension(120, 120)); 
         }
         @Override
         protected void paintComponent(Graphics g) {
@@ -264,10 +338,8 @@ public class ResultScreen extends JPanel {
                 Graphics2D g2 = (Graphics2D) g;
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-                int size = Math.min(getWidth(), getHeight());
-                int x = (getWidth() - size) / 2;
-                int y = (getHeight() - size) / 2;
-                g2.drawImage(img, x, y, size, size, null);
+                // Gambar bintang responsive
+                g2.drawImage(img, 0, 0, getWidth(), getHeight(), null);
             }
         }
     }
@@ -275,29 +347,43 @@ public class ResultScreen extends JPanel {
     class ModernButton extends JButton {
         private Color baseColor;
         private boolean hover;
+        
         public ModernButton(String text, Color color) {
             super(text);
             this.baseColor = color;
-            setFont(new Font("Comic Sans MS", Font.BOLD, 20));
             setForeground(Color.WHITE);
             setFocusPainted(false); setBorderPainted(false); setContentAreaFilled(false);
             setCursor(new Cursor(Cursor.HAND_CURSOR));
             setAlignmentX(Component.CENTER_ALIGNMENT);
-            setPreferredSize(new Dimension(280, 55));
-            setMaximumSize(new Dimension(280, 55));
+            
             addMouseListener(new MouseAdapter() {
                 public void mouseEntered(MouseEvent e) { hover = true; repaint(); }
                 public void mouseExited(MouseEvent e) { hover = false; repaint(); }
             });
         }
+        
+        public void updateScale(float s) {
+            setFont(new Font("Comic Sans MS", Font.BOLD, (int)(20 * s)));
+            // Update ukuran tombol
+            setPreferredSize(new Dimension((int)(280*s), (int)(55*s)));
+            setMaximumSize(new Dimension((int)(280*s), (int)(55*s)));
+            revalidate(); repaint();
+        }
+
         @Override
         protected void paintComponent(Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             int w = getWidth(); int h = getHeight();
             int offset = getModel().isPressed() ? 3 : 0;
-            g2.setColor(new Color(0,0,0,40)); g2.fillRoundRect(3, 6, w-6, h-6, 40, 40);
-            g2.setColor(hover ? baseColor.brighter() : baseColor); g2.fillRoundRect(0, offset, w, h-offset-2, 40, 40);
+            int arc = (int)(40 * scaleFactor); // Arc responsive
+            
+            g2.setColor(new Color(0,0,0,40)); 
+            g2.fillRoundRect((int)(3*scaleFactor), (int)(6*scaleFactor), w-(int)(6*scaleFactor), h-(int)(6*scaleFactor), arc, arc);
+            
+            g2.setColor(hover ? baseColor.brighter() : baseColor); 
+            g2.fillRoundRect(0, offset, w, h-offset-2, arc, arc);
+            
             g2.setColor(Color.WHITE); FontMetrics fm = g2.getFontMetrics();
             int x = (w - fm.stringWidth(getText())) / 2;
             int y = (h - offset - 2 - fm.getHeight()) / 2 + fm.getAscent() + offset;
