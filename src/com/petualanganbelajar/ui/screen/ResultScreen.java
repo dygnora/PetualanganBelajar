@@ -8,6 +8,7 @@ import com.petualanganbelajar.model.UserModel;
 import com.petualanganbelajar.repository.UserRepository;     
 import com.petualanganbelajar.util.LevelManager;             
 import com.petualanganbelajar.db.DatabaseConnection;
+import com.petualanganbelajar.ui.component.LevelUpDialog; // <--- IMPORT BARU
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
@@ -39,7 +40,6 @@ public class ResultScreen extends JPanel {
     private final Font FONT_TITLE = new Font("Comic Sans MS", Font.BOLD, 48);
     private final Font FONT_SCORE = new Font("Comic Sans MS", Font.BOLD, 28);
     
-    // Repository untuk update level
     private final UserRepository userRepo = new UserRepository();
     
     public ResultScreen() {
@@ -132,13 +132,11 @@ public class ResultScreen extends JPanel {
         add(cardWrapper, BorderLayout.CENTER);
     }
 
-    // --- LOGIC UTAMA DISINI ---
     public void showResult(ModuleModel module, int level, int score, int maxScore) {
         this.lastModule = module;
         this.lastLevel = level;
         updateBackground(module.getId());
 
-        // 1. Tampilkan UI Bintang & Skor
         double percentage = maxScore > 0 ? ((double) score / maxScore) * 100.0 : 0;
         int goldStars = 0;
         
@@ -174,40 +172,28 @@ public class ResultScreen extends JPanel {
 
         revalidate(); repaint();
         
-        // 2. [LOGIC LEVEL UP] Hanya jika skor > 0
         if (score > 0) {
             processLevelUp(module.getId(), level, score);
         }
     }
 
-    // --- METHOD PROSES LEVEL UP ---
     private void processLevelUp(int moduleId, int levelId, int currentScore) {
         UserModel currentUser = GameState.getCurrentUser();
         if (currentUser == null) return; 
 
-        // A. Simpan Hasil Game ke Database
         saveGameResult(currentUser.getId(), moduleId, levelId, currentScore);
-
-        // B. Hitung Total Skor User
         int totalScore = getTotalScoreByUserId(currentUser.getId());
-
-        // C. Hitung Level Baru
         int oldLevel = currentUser.getLevel();
         int newLevel = LevelManager.calculateLevelFromScore(totalScore);
 
-        // D. Cek Apakah Naik Level?
         if (newLevel > oldLevel) {
-            // Update Database & Memory
             userRepo.updateUserLevel(currentUser.getId(), newLevel);
             currentUser.setLevel(newLevel);
             
-            // Tampilkan Dialog Level Up & Mainkan Suara
             SwingUtilities.invokeLater(() -> {
+                // Pemanggilan LevelUpDialog sekarang dari class terpisah
                 LevelUpDialog dialog = new LevelUpDialog((Frame) SwingUtilities.getWindowAncestor(this), newLevel);
                 dialog.setVisible(true);
-                
-                // --- INI PEMANGGILAN SUARA NYA ---
-                // Pastikan file src/audio/levelup.wav ada
                 playSound("levelup"); 
             });
             
@@ -215,7 +201,6 @@ public class ResultScreen extends JPanel {
         }
     }
 
-    // Helper: Simpan ke tabel game_results
     private void saveGameResult(int userId, int modId, int lvl, int score) {
         String sql = "INSERT INTO game_results (user_id, module_id, level, score, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)";
         try (Connection conn = DatabaseConnection.connect();
@@ -228,7 +213,6 @@ public class ResultScreen extends JPanel {
         } catch (SQLException e) { e.printStackTrace(); }
     }
 
-    // Helper: Ambil total skor
     private int getTotalScoreByUserId(int userId) {
         String sql = "SELECT SUM(score) as total FROM game_results WHERE user_id = ?";
         try (Connection conn = DatabaseConnection.connect();
@@ -249,8 +233,6 @@ public class ResultScreen extends JPanel {
     }
 
     private void playSound(String name) {
-        // Asumsi SoundPlayer membaca dari folder /audio/ atau root classpath
-        // Jika file ada di src/audio/levelup.wav, maka name="levelup" akan menjadi "levelup.wav"
         try { SoundPlayer.getInstance().playSFX(name + ".wav"); } catch (Exception ignored) {}
     }
 
@@ -321,63 +303,6 @@ public class ResultScreen extends JPanel {
             int y = (h - offset - 2 - fm.getHeight()) / 2 + fm.getAscent() + offset;
             g2.drawString(getText(), x, y);
             g2.dispose();
-        }
-    }
-    
-    // --- DIALOG LEVEL UP (POPUP) ---
-    private class LevelUpDialog extends JDialog {
-        public LevelUpDialog(Frame parent, int newLevel) {
-            super(parent, true);
-            setUndecorated(true);
-            setBackground(new Color(0,0,0,0));
-            
-            JPanel panel = new JPanel() {
-                @Override
-                protected void paintComponent(Graphics g) {
-                    Graphics2D g2 = (Graphics2D) g;
-                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                    
-                    // Background Emas Gradien
-                    GradientPaint gp = new GradientPaint(0, 0, new Color(255, 215, 0), 0, getHeight(), new Color(255, 140, 0));
-                    g2.setPaint(gp);
-                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 40, 40);
-                    
-                    // Border Putih
-                    g2.setColor(Color.WHITE);
-                    g2.setStroke(new BasicStroke(5));
-                    g2.drawRoundRect(2, 2, getWidth()-5, getHeight()-5, 40, 40);
-                }
-            };
-            panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-            panel.setBorder(new EmptyBorder(30, 30, 30, 30));
-            
-            JLabel lblTitle = new JLabel("LEVEL UP!");
-            lblTitle.setFont(new Font("Comic Sans MS", Font.BOLD, 48));
-            lblTitle.setForeground(Color.WHITE);
-            lblTitle.setAlignmentX(Component.CENTER_ALIGNMENT);
-            
-            JLabel lblMsg = new JLabel("Selamat! Kamu naik ke Level " + newLevel);
-            lblMsg.setFont(new Font("Comic Sans MS", Font.BOLD, 24));
-            lblMsg.setForeground(new Color(255, 255, 224));
-            lblMsg.setAlignmentX(Component.CENTER_ALIGNMENT);
-            
-            JButton btnOk = new JButton("HEBAT!");
-            btnOk.setFont(new Font("Arial", Font.BOLD, 20));
-            btnOk.setBackground(Color.WHITE);
-            btnOk.setForeground(new Color(255, 140, 0));
-            btnOk.setFocusPainted(false);
-            btnOk.setAlignmentX(Component.CENTER_ALIGNMENT);
-            btnOk.addActionListener(e -> dispose());
-            
-            panel.add(lblTitle);
-            panel.add(Box.createVerticalStrut(20));
-            panel.add(lblMsg);
-            panel.add(Box.createVerticalStrut(30));
-            panel.add(btnOk);
-            
-            setContentPane(panel);
-            setSize(400, 300);
-            setLocationRelativeTo(parent);
         }
     }
 }
