@@ -5,10 +5,7 @@ import com.petualanganbelajar.core.SoundPlayer;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.KeyAdapter;
-import java.awt.event.KeyEvent;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
+import java.awt.event.*;
 import java.net.URL;
 
 public class TitleScreen extends JPanel {
@@ -21,13 +18,22 @@ public class TitleScreen extends JPanel {
     private boolean showText = true; 
     private Timer blinkTimer;
 
+    // --- VARIABEL RESPONSIVE ---
+    private final float BASE_W = 1920f;
+    private final float BASE_H = 1080f;
+    private float scaleFactor = 1.0f;
+
     public TitleScreen() {
         setLayout(null); 
         setFocusable(true); 
         loadAssets();
 
+        // [FIX] Listener ComponentResized DIHAPUS.
+        // Kita tidak membutuhkannya lagi karena perhitungan dipindah ke paintComponent
+        // agar tidak ada delay (glitch) saat awal render.
+
         // 1. Timer untuk Efek Teks Berkedip
-        blinkTimer = new Timer(700, e -> {
+        blinkTimer = new Timer(800, e -> {
             showText = !showText;
             repaint(); 
         });
@@ -50,29 +56,38 @@ public class TitleScreen extends JPanel {
         });
     }
 
-    // [FIX 1] Gunakan addNotify untuk memutar musik saat PERTAMA KALI muncul
+    // --- LOGIC RESPONSIVE ---
+    private void calculateScaleFactor() {
+        if (getWidth() <= 0 || getHeight() <= 0) return;
+        float sW = (float) getWidth() / BASE_W;
+        float sH = (float) getHeight() / BASE_H;
+        this.scaleFactor = Math.min(sW, sH);
+        // Mencegah UI terlalu kecil
+        if (this.scaleFactor < 0.5f) this.scaleFactor = 0.5f;
+    }
+
     @Override
     public void addNotify() {
         super.addNotify();
         requestFocusInWindow(); 
-        
-        // Panggil Musik di sini agar pasti bunyi setelah Splash Screen
         playTitleMusic();
     }
 
-    // [FIX 2] Tetap gunakan setVisible jika user kembali dari menu lain ke Title
     @Override
     public void setVisible(boolean aFlag) {
         super.setVisible(aFlag);
         if (aFlag) {
-            playTitleMusic();
+            SwingUtilities.invokeLater(() -> {
+                // Tidak perlu calculateScaleFactor disini lagi, 
+                // karena akan otomatis terhitung saat repaint() dipanggil
+                playTitleMusic();
+                repaint();
+            });
         }
     }
     
-    // Helper method biar tidak tulis ulang kodenya
     private void playTitleMusic() {
         try {
-            // Karena SoundPlayer sudah anti-reset, aman dipanggil berkali-kali
             SoundPlayer.getInstance().playBGM("bgm_menu.wav");
         } catch (Exception e) {
             System.err.println("Gagal memutar BGM Title: " + e.getMessage());
@@ -111,6 +126,11 @@ public class TitleScreen extends JPanel {
 
     @Override
     protected void paintComponent(Graphics g) {
+        // [FIX UTAMA] Hitung skala TEPAT SEBELUM menggambar.
+        // Ini menjamin scaleFactor selalu benar sesuai ukuran layar detik ini juga
+        // dan mencegah gambar terlihat "membesar" di frame pertama.
+        calculateScaleFactor(); 
+
         super.paintComponent(g);
         Graphics2D g2 = (Graphics2D) g;
         
@@ -124,46 +144,65 @@ public class TitleScreen extends JPanel {
         if (bgImage != null) {
             g2.drawImage(bgImage, 0, 0, w, h, this);
         } else {
-            g2.setColor(new Color(135, 206, 235)); 
+            g2.setPaint(new GradientPaint(0, 0, new Color(135, 206, 235), 0, h, new Color(25, 118, 210))); 
             g2.fillRect(0, 0, w, h);
         }
 
-        // 2. GAMBAR JUDUL (LOGO)
+        // 2. GAMBAR JUDUL (LOGO) - RESPONSIVE
         if (titleImage != null) {
-            int logoWidth = 850; 
-            int logoHeight = 550; 
+            // Ukuran Base SESUAI REQUEST (TIDAK DIUBAH)
+            int logoBaseW = 1100; 
+            int logoBaseH = 800; 
             
+            int logoWidth = (int)(logoBaseW * scaleFactor);
+            int logoHeight = (int)(logoBaseH * scaleFactor);
+            
+            // Posisi X tetap ditengah layar
             int x = (w - logoWidth) / 2;
-            int y = -20; 
+            
+            // Posisi Y dikalikan scale factor agar posisinya proporsional
+            int yOffset = (int)(-20 * scaleFactor); 
 
-            g2.drawImage(titleImage, x, y, logoWidth, logoHeight, this);
+            g2.drawImage(titleImage, x, yOffset, logoWidth, logoHeight, this);
         }
 
-        // 3. TEKS "TEKAN APAPUN"
+        // 3. TEKS "TEKAN APAPUN" - RESPONSIVE
         if (showText) {
             String text = "Tekan apapun untuk masuk ke dalam game";
             
-            g2.setFont(new Font("Comic Sans MS", Font.BOLD, 28));
+            // Font size SESUAI REQUEST (TIDAK DIUBAH)
+            int baseFontSize = 56;
+            int scaledFontSize = (int)(baseFontSize * scaleFactor);
+            
+            g2.setFont(new Font("Comic Sans MS", Font.BOLD, scaledFontSize));
             FontMetrics fm = g2.getFontMetrics();
             
             int textX = (w - fm.stringWidth(text)) / 2;
-            int textY = h - 80; 
+            
+            // Jarak dari bawah SESUAI REQUEST
+            int marginBottom = (int)(80 * scaleFactor);
+            int textY = h - marginBottom; 
 
             // Stroke/Outline Hitam
             g2.setColor(Color.BLACK);
-            g2.drawString(text, textX - 2, textY - 2);
-            g2.drawString(text, textX - 2, textY + 2);
-            g2.drawString(text, textX + 2, textY - 2);
-            g2.drawString(text, textX + 2, textY + 2);
+            int shift = Math.max(1, (int)(2 * scaleFactor)); 
+            g2.drawString(text, textX - shift, textY - shift);
+            g2.drawString(text, textX - shift, textY + shift);
+            g2.drawString(text, textX + shift, textY - shift);
+            g2.drawString(text, textX + shift, textY + shift);
 
             // Teks Utama Putih
             g2.setColor(Color.WHITE);
             g2.drawString(text, textX, textY);
         }
         
-        // 4. Versi Kecil
-        g2.setFont(new Font("Arial", Font.PLAIN, 12));
+        // 4. Versi Kecil - RESPONSIVE
+        int smallFontSize = Math.max(10, (int)(12 * scaleFactor)); 
+        g2.setFont(new Font("Arial", Font.PLAIN, smallFontSize));
         g2.setColor(new Color(255, 255, 255, 120));
-        g2.drawString("v1.0", w - 40, h - 10);
+        
+        int verMargin = (int)(10 * scaleFactor);
+        int verX = w - (int)(40 * scaleFactor);
+        g2.drawString("v1.0", verX, h - verMargin);
     }
 }

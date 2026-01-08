@@ -86,13 +86,22 @@ public class ProfileSelectionScreen extends JPanel {
     }
 
     private void updateResponsiveLayout() {
+        // 1. HEADER PANEL & TITLE
         if (headerPanel != null) {
-            headerPanel.setPreferredSize(new Dimension((int)(900*scaleFactor), (int)(300*scaleFactor))); 
+            // Tinggi header diperbesar sedikit agar judul muat
+            headerPanel.setPreferredSize(new Dimension(getWidth(), (int)(400*scaleFactor))); 
+            // Margin atas untuk menggeser judul
             headerPanel.setBorder(new EmptyBorder((int)(-30*scaleFactor), 0, 0, 0));
         }
+
         if (lblTitle != null) {
             if (titleImage != null) {
-                Image scaled = titleImage.getScaledInstance((int)(800*scaleFactor), (int)(650*scaleFactor), Image.SCALE_SMOOTH);
+                // Perbesar Gambar Judul (Lebar x Tinggi)
+                Image scaled = titleImage.getScaledInstance(
+                    (int)(900*scaleFactor),  // 900px
+                    (int)(500*scaleFactor),  // 500px height (agar proporsional)
+                    Image.SCALE_SMOOTH
+                );
                 lblTitle.setIcon(new ImageIcon(scaled));
                 lblTitle.setText("");
             } else {
@@ -100,14 +109,13 @@ public class ProfileSelectionScreen extends JPanel {
             }
         }
 
-        if (footerPanel != null) {
-            footerPanel.setPreferredSize(new Dimension((int)(800*scaleFactor), (int)(120*scaleFactor)));
-            footerPanel.setBorder(new EmptyBorder(0, 0, (int)(30*scaleFactor), 0));
-        }
-        if (btnBack != null) btnBack.updateScale(scaleFactor);
-
+        // 2. CENTER PANEL (Carousel & Nav Buttons)
         if (centerPanel != null) {
-            centerPanel.setBorder(new EmptyBorder(0, (int)(50*scaleFactor), 0, (int)(50*scaleFactor)));
+            // Margin Negatif ATAS (-100) untuk menarik Carousel mendekati Judul
+            // Margin Kiri/Kanan (50) untuk tombol navigasi
+            int topM = (int)(-100 * scaleFactor);
+            int sideM = (int)(50 * scaleFactor);
+            centerPanel.setBorder(new EmptyBorder(topM, sideM, 0, sideM));
         }
         
         int btnSize = (int)(120 * scaleFactor);
@@ -115,6 +123,18 @@ public class ProfileSelectionScreen extends JPanel {
         if (navNext != null) navNext.setPreferredSize(new Dimension(btnSize, btnSize));
 
         if (carouselPanel != null) carouselPanel.repaint();
+
+        // 3. FOOTER PANEL (Tombol Kembali)
+        if (footerPanel != null) {
+            // Hapus setPreferredSize agar tinggi otomatis mengikuti konten + border
+            footerPanel.setPreferredSize(null);
+            
+            // Beri margin bawah yang cukup agar tombol tidak nempel ke dasar layar
+            int bottomM = (int)(40 * scaleFactor);
+            footerPanel.setBorder(new EmptyBorder(0, 0, bottomM, 0));
+        }
+        
+        if (btnBack != null) btnBack.updateScale(scaleFactor);
 
         revalidate();
         repaint();
@@ -158,6 +178,7 @@ public class ProfileSelectionScreen extends JPanel {
     }
 
     private void initUI() {
+        // --- HEADER ---
         headerPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
         headerPanel.setOpaque(false);
         lblTitle = new JLabel();
@@ -168,6 +189,7 @@ public class ProfileSelectionScreen extends JPanel {
         headerPanel.add(lblTitle);
         add(headerPanel, BorderLayout.NORTH);
 
+        // --- CENTER ---
         centerPanel = new JPanel(new BorderLayout());
         centerPanel.setOpaque(false);
         
@@ -198,7 +220,8 @@ public class ProfileSelectionScreen extends JPanel {
         centerPanel.add(rightWrapper, BorderLayout.EAST);
         add(centerPanel, BorderLayout.CENTER);
 
-        footerPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        // --- FOOTER (Gunakan GridBagLayout agar tombol center vertikal & horizontal) ---
+        footerPanel = new JPanel(new GridBagLayout());
         footerPanel.setOpaque(false);
         btnBack = new GameButton("KEMBALI", new Color(220, 53, 69));
         btnBack.addActionListener(e -> {
@@ -353,7 +376,15 @@ public class ProfileSelectionScreen extends JPanel {
 
             int centerIdx = Math.round(visualIndex);
             
+            // Loop dari belakang ke depan agar center card di render terakhir (paling atas)
             for (int i = centerIdx - 2; i <= centerIdx + 2; i++) {
+                // Skip rendering jika loop terlalu jauh (opsional)
+            }
+            
+            // Render urutan yang benar: kiri jauh, kanan jauh, kiri dekat, kanan dekat, tengah
+            int[] renderOrder = {centerIdx-2, centerIdx+2, centerIdx-1, centerIdx+1, centerIdx};
+            
+            for (int i : renderOrder) {
                 float dist = i - visualIndex; 
                 float absDist = Math.abs(dist);
 
@@ -438,7 +469,7 @@ public class ProfileSelectionScreen extends JPanel {
     }
 
     // ============================================================
-    // [PERBAIKAN] CUSTOM CONFIRM DIALOG - FONT LEBIH BESAR
+    // CUSTOM CONFIRM DIALOG
     // ============================================================
     class AdventureConfirmDialog extends JDialog {
         private boolean confirmed = false;
@@ -477,13 +508,11 @@ public class ProfileSelectionScreen extends JPanel {
             panel.setLayout(new BorderLayout());
             panel.setBorder(new EmptyBorder((int)(25*scale), (int)(20*scale), (int)(20*scale), (int)(20*scale)));
             
-            // 1. JUDUL (DIPERBESAR: 32 -> 42)
             JLabel lblTitle = new JLabel(title, SwingConstants.CENTER);
             lblTitle.setFont(new Font("Comic Sans MS", Font.BOLD, (int)(42*scale))); 
             lblTitle.setForeground(new Color(192, 57, 43));
             panel.add(lblTitle, BorderLayout.NORTH);
             
-            // 2. PESAN (DIPERBESAR: 24 -> 32)
             JTextPane txtMsg = new JTextPane();
             txtMsg.setText(message);
             txtMsg.setFont(new Font("Comic Sans MS", Font.PLAIN, (int)(32*scale))); 
@@ -492,7 +521,6 @@ public class ProfileSelectionScreen extends JPanel {
             txtMsg.setEditable(false);
             txtMsg.setFocusable(false);
             
-            // Logika Rata Tengah TextPane
             StyledDocument doc = txtMsg.getStyledDocument();
             SimpleAttributeSet center = new SimpleAttributeSet();
             StyleConstants.setAlignment(center, StyleConstants.ALIGN_CENTER);
@@ -501,13 +529,11 @@ public class ProfileSelectionScreen extends JPanel {
             txtMsg.setBorder(new EmptyBorder((int)(15*scale), (int)(10*scale), (int)(15*scale), (int)(10*scale)));
             panel.add(txtMsg, BorderLayout.CENTER);
             
-            // Tombol Panel
             JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, (int)(20*scale), 0));
             btnPanel.setOpaque(false);
             
             GameButton btnYes = new GameButton("YA", new Color(192, 57, 43));
             btnYes.updateScale(scale);
-            // Ukuran tombol di dalam dialog sedikit diperbesar menyesuaikan font
             btnYes.setPreferredSize(new Dimension((int)(200*scale), (int)(60*scale))); 
             btnYes.addActionListener(e -> { confirmed = true; dispose(); });
             
@@ -521,7 +547,6 @@ public class ProfileSelectionScreen extends JPanel {
             panel.add(btnPanel, BorderLayout.SOUTH);
             
             setContentPane(panel);
-            // Ukuran Dialog diperlebar sedikit lagi agar muat font besar (550 -> 600)
             setSize((int)(600*scale), (int)(350*scale)); 
             setLocationRelativeTo(parent);
         }

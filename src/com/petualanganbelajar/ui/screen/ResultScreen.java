@@ -5,8 +5,8 @@ import com.petualanganbelajar.core.ScreenManager;
 import com.petualanganbelajar.core.SoundPlayer;
 import com.petualanganbelajar.model.ModuleModel;
 import com.petualanganbelajar.model.UserModel;
-import com.petualanganbelajar.repository.UserRepository;     
-import com.petualanganbelajar.util.LevelManager;             
+import com.petualanganbelajar.repository.UserRepository;
+import com.petualanganbelajar.util.LevelManager;
 import com.petualanganbelajar.db.DatabaseConnection;
 import com.petualanganbelajar.ui.component.LevelUpDialog;
 
@@ -30,7 +30,7 @@ public class ResultScreen extends JPanel {
     private Image starBrightImg; 
     private Image starDarkImg;    
 
-    // Komponen UI
+    // UI Components
     private JPanel resultCard;
     private JLabel lblTitle;
     private JLabel lblScore;
@@ -41,7 +41,7 @@ public class ResultScreen extends JPanel {
     private ModernButton btnRetry;
     private ModernButton btnModuleMenu;
 
-    // Variabel Responsif
+    // Responsive Variables
     private final float BASE_W = 1920f;
     private final float BASE_H = 1080f;
     private float scaleFactor = 1.0f;
@@ -53,7 +53,7 @@ public class ResultScreen extends JPanel {
         loadAssets(); 
         initUI();
         
-        // Listener untuk Auto-Scaling
+        // Auto-Scaling Listener
         this.addComponentListener(new ComponentAdapter() {
             @Override
             public void componentResized(ComponentEvent e) {
@@ -74,28 +74,28 @@ public class ResultScreen extends JPanel {
     private void updateResponsiveLayout() {
         if (resultCard == null) return;
 
-        // 1. Update Padding Card
+        // 1. Update Card Padding
         int padV = (int)(40 * scaleFactor);
         int padH = (int)(50 * scaleFactor);
         resultCard.setBorder(new EmptyBorder(padV, padH, padV, padH));
 
-        // 2. Update Font Judul & Skor
+        // 2. Update Font Sizes
         lblTitle.setFont(new Font("Comic Sans MS", Font.BOLD, (int)(48 * scaleFactor)));
         lblScore.setFont(new Font("Comic Sans MS", Font.BOLD, (int)(28 * scaleFactor)));
 
-        // 3. Update Ukuran Tombol
+        // 3. Update Button Sizes
         if (btnNextLevel != null) btnNextLevel.updateScale(scaleFactor);
         if (btnRetry != null) btnRetry.updateScale(scaleFactor);
         if (btnModuleMenu != null) btnModuleMenu.updateScale(scaleFactor);
 
-        // 4. Update Ukuran Bintang
+        // 4. Update Stars Size
         if (starsPanel != null) {
-            // Lebar panel bintang menyesuaikan
-            starsPanel.setMaximumSize(new Dimension((int)(450*scaleFactor), (int)(150*scaleFactor)));
-            // Jarak antar bintang
+            Dimension panelDim = new Dimension((int)(450*scaleFactor), (int)(150*scaleFactor));
+            starsPanel.setPreferredSize(panelDim); 
+            starsPanel.setMaximumSize(panelDim);
+            
             ((GridLayout)starsPanel.getLayout()).setHgap((int)(15*scaleFactor));
             
-            // Resize panel bintang di dalamnya
             for (Component c : starsPanel.getComponents()) {
                 if (c instanceof StarImagePanel) {
                     ((StarImagePanel)c).setPreferredSize(new Dimension((int)(120*scaleFactor), (int)(120*scaleFactor)));
@@ -118,7 +118,7 @@ public class ResultScreen extends JPanel {
             if (darkUrl != null) starDarkImg = ImageIO.read(darkUrl);
             
         } catch (Exception e) {
-            System.err.println("Gagal memuat aset bintang: " + e.getMessage());
+            System.err.println("Failed to load star assets: " + e.getMessage());
         }
     }
 
@@ -129,7 +129,7 @@ public class ResultScreen extends JPanel {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 int w = getWidth(); int h = getHeight();
-                int arc = (int)(50 * scaleFactor); // Arc responsif
+                int arc = (int)(50 * scaleFactor); 
                 
                 g2.setColor(new Color(0,0,0,60)); 
                 g2.fillRoundRect((int)(5*scaleFactor), (int)(5*scaleFactor), w-(int)(10*scaleFactor), h-(int)(10*scaleFactor), arc, arc);
@@ -185,7 +185,7 @@ public class ResultScreen extends JPanel {
         });
 
         resultCard.add(lblTitle);
-        resultCard.add(Box.createVerticalStrut(20)); // Spacer statis, nanti akan direfresh layoutnya
+        resultCard.add(Box.createVerticalStrut(20)); 
         resultCard.add(starsPanel);
         resultCard.add(Box.createVerticalStrut(20));
         resultCard.add(lblScore);
@@ -195,7 +195,6 @@ public class ResultScreen extends JPanel {
         add(cardWrapper, BorderLayout.CENTER);
     }
 
-    // --- Override setVisible agar layout terupdate saat layar muncul ---
     @Override
     public void setVisible(boolean aFlag) {
         super.setVisible(aFlag);
@@ -212,17 +211,40 @@ public class ResultScreen extends JPanel {
         this.lastLevel = level;
         updateBackground(module.getId());
 
+        // 1. Process Data & Check Level Up (Before showing UI)
+        boolean isLevelUp = false;
+        int newLevel = 0;
+        
+        if (score > 0) {
+            newLevel = checkAndSaveProgress(module.getId(), level, score);
+            isLevelUp = (newLevel > 0);
+        }
+
+        // 2. If Level Up, Show Dialog & Play Sound
+        if (isLevelUp) {
+            playSound("levelup"); 
+            Frame parent = (Frame) SwingUtilities.getWindowAncestor(this);
+            LevelUpDialog dialog = new LevelUpDialog(parent, newLevel);
+            dialog.setVisible(true); 
+            // -- Program waits here until dialog closed --
+        }
+
+        // 3. Show Result Screen
         double percentage = maxScore > 0 ? ((double) score / maxScore) * 100.0 : 0;
         int goldStars = 0;
         
         if (percentage == 100) {
-            goldStars = 3; lblTitle.setText("SEMPURNA!"); lblTitle.setForeground(new Color(255, 140, 0)); playSound("level_complete");
+            goldStars = 3; lblTitle.setText("SEMPURNA!"); lblTitle.setForeground(new Color(255, 140, 0)); 
+            playSound("level_complete"); 
         } else if (percentage >= 60) {
-            goldStars = 2; lblTitle.setText("BAGUS!"); lblTitle.setForeground(new Color(76, 175, 80)); playSound("level_complete");
+            goldStars = 2; lblTitle.setText("BAGUS!"); lblTitle.setForeground(new Color(76, 175, 80)); 
+            playSound("level_complete");
         } else if (percentage > 0) {
-            goldStars = 1; lblTitle.setText("LUMAYAN!"); lblTitle.setForeground(new Color(33, 150, 243)); playSound("level_failed");
+            goldStars = 1; lblTitle.setText("LUMAYAN!"); lblTitle.setForeground(new Color(33, 150, 243)); 
+            playSound("level_failed");
         } else {
-            goldStars = 0; lblTitle.setText("JANGAN MENYERAH!"); lblTitle.setForeground(new Color(229, 57, 53)); playSound("level_failed");
+            goldStars = 0; lblTitle.setText("JANGAN MENYERAH!"); lblTitle.setForeground(new Color(229, 57, 53)); 
+            playSound("level_failed");
         }
         
         lblScore.setText("SKOR KAMU: " + score + " / " + maxScore);
@@ -234,7 +256,6 @@ public class ResultScreen extends JPanel {
         }
 
         buttonsPanel.removeAll();
-        // Gunakan Box.createRigidArea agar bisa disesuaikan ukurannya nanti
         boolean isPassed = percentage >= 60;
         
         if (isPassed && level < 3 && !module.getName().equalsIgnoreCase("EPILOGUE")) {
@@ -246,56 +267,69 @@ public class ResultScreen extends JPanel {
         buttonsPanel.add(Box.createRigidArea(new Dimension(0, (int)(15*scaleFactor))));
         buttonsPanel.add(btnModuleMenu);
 
-        // Panggil update layout lagi untuk memastikan posisi benar
-        updateResponsiveLayout(); 
-        
-        if (score > 0) {
-            processLevelUp(module.getId(), level, score);
-        }
+        SwingUtilities.invokeLater(() -> {
+            calculateScaleFactor();
+            updateResponsiveLayout();
+            revalidate();
+            repaint();
+        });
     }
 
-    private void processLevelUp(int moduleId, int levelId, int currentScore) {
+    private int checkAndSaveProgress(int moduleId, int levelId, int currentScore) {
         UserModel currentUser = GameState.getCurrentUser();
-        if (currentUser == null) return; 
+        if (currentUser == null) return 0; 
 
+        // 1. Save Result
         saveGameResult(currentUser.getId(), moduleId, levelId, currentScore);
+
+        // 2. Check Level Up
         int totalScore = getTotalScoreByUserId(currentUser.getId());
         int oldLevel = currentUser.getLevel();
-        int newLevel = LevelManager.calculateLevelFromScore(totalScore);
+        int calculatedLevel = LevelManager.calculateLevelFromScore(totalScore);
 
-        if (newLevel > oldLevel) {
-            userRepo.updateUserLevel(currentUser.getId(), newLevel);
-            currentUser.setLevel(newLevel);
-            
-            SwingUtilities.invokeLater(() -> {
-                LevelUpDialog dialog = new LevelUpDialog((Frame) SwingUtilities.getWindowAncestor(this), newLevel);
-                dialog.setVisible(true);
-                playSound("levelup"); 
-            });
-            System.out.println("LEVEL UP! " + oldLevel + " -> " + newLevel);
+        if (calculatedLevel > oldLevel) {
+            userRepo.updateUserLevel(currentUser.getId(), calculatedLevel);
+            currentUser.setLevel(calculatedLevel);
+            return calculatedLevel; 
         }
+        return 0; 
     }
 
     private void saveGameResult(int userId, int modId, int lvl, int score) {
         String sql = "INSERT INTO game_results (user_id, module_id, level, score, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)";
-        try (Connection conn = DatabaseConnection.connect();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        
+        // [FIX] Connection must be OUTSIDE try-with-resources to avoid closing shared connection
+        Connection conn = DatabaseConnection.connect();
+        if (conn == null) return;
+
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, userId);
             pstmt.setInt(2, modId);
             pstmt.setInt(3, lvl);
             pstmt.setInt(4, score);
             pstmt.executeUpdate();
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { 
+            e.printStackTrace(); 
+        }
     }
 
     private int getTotalScoreByUserId(int userId) {
         String sql = "SELECT SUM(score) as total FROM game_results WHERE user_id = ?";
-        try (Connection conn = DatabaseConnection.connect();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        
+        // [FIX] Connection OUTSIDE try-with-resources
+        Connection conn = DatabaseConnection.connect();
+        if (conn == null) return 0;
+
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, userId);
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) return rs.getInt("total");
-        } catch (SQLException e) { e.printStackTrace(); }
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("total");
+                }
+            }
+        } catch (SQLException e) { 
+            e.printStackTrace(); 
+        }
         return 0;
     }
 
@@ -338,7 +372,6 @@ public class ResultScreen extends JPanel {
                 Graphics2D g2 = (Graphics2D) g;
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-                // Gambar bintang responsive
                 g2.drawImage(img, 0, 0, getWidth(), getHeight(), null);
             }
         }
@@ -364,7 +397,6 @@ public class ResultScreen extends JPanel {
         
         public void updateScale(float s) {
             setFont(new Font("Comic Sans MS", Font.BOLD, (int)(20 * s)));
-            // Update ukuran tombol
             setPreferredSize(new Dimension((int)(280*s), (int)(55*s)));
             setMaximumSize(new Dimension((int)(280*s), (int)(55*s)));
             revalidate(); repaint();
@@ -376,7 +408,7 @@ public class ResultScreen extends JPanel {
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             int w = getWidth(); int h = getHeight();
             int offset = getModel().isPressed() ? 3 : 0;
-            int arc = (int)(40 * scaleFactor); // Arc responsive
+            int arc = (int)(40 * scaleFactor); 
             
             g2.setColor(new Color(0,0,0,40)); 
             g2.fillRoundRect((int)(3*scaleFactor), (int)(6*scaleFactor), w-(int)(6*scaleFactor), h-(int)(6*scaleFactor), arc, arc);

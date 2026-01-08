@@ -138,21 +138,25 @@ public class GameScreen extends JPanel {
             headerPanel.setBorder(new EmptyBorder(topPad, sidePad, 5, sidePad));
         }
 
-        // 3. Update Ukuran HUD (Idealnya class HUD punya method setScale, tapi kita resize panelnya saja)
-        // Kita bisa mengatur PreferredSize dari container HUD jika diperlukan
+        // 3. Update Ukuran HUD
         if (levelHUD != null) {
-            // Skala level HUD (misal basis lebar 320 -> dikali scale)
             int hudW = (int)(320 * scaleFactor);
             int hudH = (int)(90 * scaleFactor);
             levelHUD.setPreferredSize(new Dimension(hudW, hudH));
-            // Anda mungkin perlu menambahkan method setScale di dalam class GameLevelHUD
-            // untuk mengubah ukuran font di dalamnya juga.
         }
         
         // 4. Update Area Soal (Padding)
         if (questionPanel != null) {
              int qPad = (int)(30 * scaleFactor);
              questionPanel.setBorder(new EmptyBorder(qPad, qPad, qPad, qPad));
+        }
+        
+        // [FIX] Trigger ulang render visualizer jika sedang menampilkan soal agar ukuran icon terupdate
+        if (visualContainer != null && visualContainer.getComponentCount() > 0) {
+             // Opsional: Anda bisa memanggil showQuestion() lagi jika ingin redraw total,
+             // tapi hati-hati mereset state input.
+             // Untuk sekarang, kita biarkan layout manager mengurus posisi, 
+             // icon size akan terupdate saat soal berikutnya muncul atau jika kita panggil render ulang.
         }
     }
 
@@ -303,7 +307,7 @@ public class GameScreen extends JPanel {
         Color scoreTop, scoreBottom;
 
         switch (moduleId) {
-            case 1: // MODUL ANGKA (Alam/Hijau)
+            case 1: // MODUL ANGKA
                 themePrimaryColor = new Color(46, 139, 87);
                 themeBgTopColor = new Color(200, 255, 200);
                 themeBgBottomColor = new Color(240, 255, 240);
@@ -319,27 +323,28 @@ public class GameScreen extends JPanel {
                 scoreTop = new Color(255, 99, 71); scoreBottom = new Color(178, 34, 34);
                 break;
 
-            case 2: // MODUL HURUF (Langit/Biru)
-                themePrimaryColor = new Color(30, 144, 255);
-                themeBgTopColor = new Color(135, 206, 250);
-                themeBgBottomColor = new Color(240, 248, 255);
-                themeAccentColor = new Color(255, 255, 255, 120);
+            case 2: // MODUL HURUF
+                themePrimaryColor = new Color(199, 21, 133); 
+                themeBgTopColor = new Color(255, 228, 238);    
+                themeBgBottomColor = new Color(255, 250, 255); 
+                themeAccentColor = new Color(255, 105, 180, 70); 
 
                 profileColors = new Color[]{ 
-                    new Color(255, 255, 255), 
-                    new Color(224, 255, 255), 
-                    new Color(176, 224, 230) 
+                    new Color(0, 139, 139),    
+                    new Color(32, 178, 170),  
+                    new Color(72, 209, 204)    
                 };
                 
-                levelTop = new Color(65, 105, 225);     
-                levelBottom = new Color(0, 0, 139);     
-                levelOutline = new Color(255, 255, 255); 
-                levelTextColor = Color.WHITE;            
+                levelTop = new Color(50, 111, 168);    
+                levelBottom = new Color(0, 128, 128);  
+                levelOutline = new Color(0, 51, 51);
+                levelTextColor = Color.WHITE;             
                 
-                scoreTop = new Color(255, 215, 0); scoreBottom = new Color(255, 140, 0);
+                scoreTop = new Color(102, 255, 0); 
+                scoreBottom = new Color(50, 168, 115);
                 break;
 
-            case 3: // MODUL WARNA (Artistik/Ungu/Pink)
+            case 3: // MODUL WARNA
                 themePrimaryColor = new Color(255, 112, 67);
                 themeBgTopColor = new Color(255, 224, 178);
                 themeBgBottomColor = new Color(255, 243, 224);
@@ -347,7 +352,7 @@ public class GameScreen extends JPanel {
                 
                 profileColors = new Color[]{ Color.MAGENTA, new Color(255, 105, 180), Color.CYAN };
                 
-                levelTop = new Color(218, 112, 214);   
+                levelTop = new Color(218, 112, 214);    
                 levelBottom = new Color(153, 50, 204); 
                 levelOutline = new Color(75, 0, 130);  
                 levelTextColor = Color.WHITE;
@@ -355,7 +360,7 @@ public class GameScreen extends JPanel {
                 scoreTop = new Color(0, 255, 255); scoreBottom = new Color(0, 128, 128);
                 break;
                 
-            case 4: // MODUL BENTUK (Geometris/Kuning/Oranye)
+            case 4: // MODUL BENTUK
                 themePrimaryColor = new Color(255, 165, 0);
                 themeBgTopColor = new Color(255, 250, 205);
                 themeBgBottomColor = new Color(255, 228, 181);
@@ -555,6 +560,8 @@ public class GameScreen extends JPanel {
         QuestionModel q = questionList.get(currentQuestionIndex);
         String type = q.getQuestionType().toString();
         visualContainer.removeAll(); answerAreaPanel.removeAll();
+        
+        // [FIX] Pass scaleFactor to GameVisualizer
         if ("CLICK".equalsIgnoreCase(type)) {
             lblInstruction.setText("<html><center>" + q.getQuestionText() + "</center></html>");
         } else if ("SEQUENCE_MULTI".equalsIgnoreCase(type)) {
@@ -563,13 +570,17 @@ public class GameScreen extends JPanel {
             this.answerQueue = new LinkedList<>();
             String[] ans = parts[2].trim().split(",");
             for(String a : ans) answerQueue.add(a.trim());
-            GameVisualizer.renderSequenceMulti(visualContainer, lblInstruction, currentDisplayPattern);
+            
+            GameVisualizer.renderSequenceMulti(visualContainer, lblInstruction, currentDisplayPattern, scaleFactor);
         } else {
-            GameVisualizer.render(visualContainer, lblInstruction, q, currentModule.getId(), currentLevel);
+            GameVisualizer.render(visualContainer, lblInstruction, q, currentModule.getId(), currentLevel, scaleFactor);
         }
+        
         if (q.getQuestionAudio() != null) soundPlayer.playSFX(q.getQuestionAudio());
+        // Tambahkan scaleFactor di akhir
         GameInputManager.setupInput(q, answerAreaPanel, visualContainer, currentModule.getId(), currentDisplayPattern, 
-            (answer) -> handleAnswer(q, answer));
+            (answer) -> handleAnswer(q, answer), scaleFactor);
+        
         visualContainer.revalidate(); visualContainer.repaint();
         answerAreaPanel.revalidate(); answerAreaPanel.repaint();
     }
@@ -617,7 +628,10 @@ public class GameScreen extends JPanel {
             String[] parts = currentDisplayPattern.split("##");
             String pola = parts[1].replaceFirst("_", input);
             this.currentDisplayPattern = parts[0] + "##" + pola;
-            GameVisualizer.renderSequenceMulti(visualContainer, lblInstruction, currentDisplayPattern);
+            
+            // [FIX] Pass scaleFactor
+            GameVisualizer.renderSequenceMulti(visualContainer, lblInstruction, currentDisplayPattern, scaleFactor);
+            
             if (answerQueue.isEmpty()) {
                 int earned = 0; String msgText = ""; String name = getPlayerName();
                 if (isFirstAttempt) { 
@@ -645,8 +659,16 @@ public class GameScreen extends JPanel {
             String realFile = qImg.replace("SILHOUETTE:", "");
             for (Component c : visualContainer.getComponents()) {
                 if (c instanceof JLabel) {
-                    ImageIcon colorIcon = UIHelper.loadIcon(realFile, 200, 200);
-                    if (colorIcon != null) { ((JLabel) c).setIcon(colorIcon); visualContainer.repaint(); return true; }
+                    // [MODIFIKASI] Gunakan scaleFactor untuk ukuran gambar
+                    // Perbesar dari base 200 ke 300 agar terlihat jelas
+                    int imgSize = (int)(300 * scaleFactor); 
+                    
+                    ImageIcon colorIcon = UIHelper.loadIcon(realFile, imgSize, imgSize);
+                    if (colorIcon != null) { 
+                        ((JLabel) c).setIcon(colorIcon); 
+                        visualContainer.repaint(); 
+                        return true; 
+                    }
                 }
             }
         }

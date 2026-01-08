@@ -29,11 +29,26 @@ public class UserProfileCard {
         new Color(171, 71, 188)   // Ungu
     };
     
+    // --- DAFTAR TITLE (Gelar) BERDASARKAN LEVEL ---
+    // Index 0 = Level 0-4, Index 1 = Level 5-9, dst.
+    private static final String[] TITLES = {
+        "Pendatang Baru",   // 0-4
+        "Murid Rajin",      // 5-9
+        "Petualang Cilik",  // 10-14
+        "Pencari Tahu",     // 15-19
+        "Bintang Kelas",    // 20-24
+        "Ahli Strategi",    // 25-29
+        "Kapten Cerdas",    // 30-34
+        "Profesor Muda",    // 35-39
+        "Sang Jenius",      // 40-44
+        "Master Ilmu",      // 45-49
+        "LEGENDA BELAJAR"   // 50+
+    };
+    
     // --- ASET GAMBAR TOMBOL DELETE (Static Load) ---
     private static Image trashIconImg;
     static {
         try {
-            // Memuat gambar hanya sekali saat kelas ini pertama kali diakses
             URL url = UserProfileCard.class.getResource("/images/btn_delete.png");
             if (url != null) {
                 trashIconImg = new ImageIcon(url).getImage();
@@ -63,10 +78,18 @@ public class UserProfileCard {
     // Mendapatkan Hitbox Tombol Sampah
     public Rectangle getTrashBounds(int centerX, int centerY) {
         Rectangle b = getCardBounds(centerX, centerY);
-        int size = (int)(100 * scaleFactor); // Ukuran tombol agak besar
+        int size = (int)(100 * scaleFactor); 
         int margin = (int)(0 * scaleFactor);
-        // Pojok Kanan Atas
         return new Rectangle(b.x + b.width - size - margin, b.y + margin, size, size);
+    }
+    
+    // --- LOGIC TITLE ---
+    private String getUserTitle(int level) {
+        int index = level / 5; // Setiap 5 level ganti title
+        if (index >= TITLES.length) {
+            index = TITLES.length - 1; // Cap di title terakhir (Level 50+)
+        }
+        return TITLES[index];
     }
 
     public void paint(Graphics2D g2, int centerX, int centerY, boolean isTrashHovered) {
@@ -82,46 +105,42 @@ public class UserProfileCard {
 
         Color themeColor = THEME_COLORS[user.getId() % THEME_COLORS.length];
 
-        // --- 1. SHADOW (Bayangan Bawah) ---
+        // --- 1. SHADOW ---
         g2.setColor(new Color(0,0,0,40));
         g2.fillRoundRect(x + (int)(10*scaleFactor), y + (int)(15*scaleFactor), w, h, arc, arc);
 
-        // --- 2. CARD BASE (Background Putih) ---
+        // --- 2. CARD BASE ---
         g2.setColor(Color.WHITE);
         g2.fillRoundRect(x, y, w, h, arc, arc);
 
-        // --- 3. BORDER TEBAL BERWARNA ---
+        // --- 3. BORDER ---
         g2.setColor(themeColor);
         g2.setStroke(new BasicStroke(6 * scaleFactor));
         g2.drawRoundRect(x, y, w, h, arc, arc);
 
-        // --- 4. HEADER BACKGROUND (Lengkung di atas) ---
+        // --- 4. HEADER BACKGROUND ---
         Shape savedClip = g2.getClip();
         g2.setClip(new RoundRectangle2D.Float(x, y, w, h, arc, arc));
         
-        g2.setColor(new Color(themeColor.getRed(), themeColor.getGreen(), themeColor.getBlue(), 30)); // Transparan
-        g2.fillRect(x, y, w, h/2); // Setengah atas berwarna pudar
+        g2.setColor(new Color(themeColor.getRed(), themeColor.getGreen(), themeColor.getBlue(), 30)); 
+        g2.fillRect(x, y, w, h/2); 
         
-        // Lingkaran dekorasi di header
         g2.setColor(themeColor);
         g2.fillOval(x + w/2 - (int)(100*scaleFactor), y - (int)(80*scaleFactor), (int)(200*scaleFactor), (int)(200*scaleFactor));
         
         g2.setClip(savedClip);
 
-        // --- 5. AVATAR (Pop-out Circle) ---
+        // --- 5. AVATAR ---
         int avatarSize = (int)(180 * cardScale * scaleFactor);
         int cxAv = x + (w - avatarSize) / 2;
-        int cyAv = y + (int)(50 * scaleFactor); // Posisi agak turun dari atas
+        int cyAv = y + (int)(50 * scaleFactor); 
 
-        // Border Putih Avatar
         g2.setColor(Color.WHITE);
         g2.fillOval(cxAv, cyAv, avatarSize, avatarSize);
-        // Stroke Avatar
         g2.setColor(themeColor);
         g2.setStroke(new BasicStroke(4 * scaleFactor));
         g2.drawOval(cxAv, cyAv, avatarSize, avatarSize);
 
-        // Gambar Avatar
         try {
             String fName = (user.getAvatar() == null) ? "default.png" : user.getAvatar();
             URL url = getClass().getResource("/images/" + fName);
@@ -134,28 +153,53 @@ public class UserProfileCard {
             }
         } catch (Exception ignored) {}
 
-        // --- 6. NAME & LABEL ---
-        int textY = cyAv + avatarSize + (int)(50 * scaleFactor);
+        // --- 6. NAME, TITLE & LEVEL INFO (UPDATED) ---
+        int currentY = cyAv + avatarSize + (int)(45 * scaleFactor);
         
+        // A. Nama User
         g2.setColor(new Color(50, 50, 50));
-        g2.setFont(new Font("Comic Sans MS", Font.BOLD, (int)(36 * cardScale * scaleFactor)));
-        FontMetrics fm = g2.getFontMetrics();
+        g2.setFont(new Font("Comic Sans MS", Font.BOLD, (int)(32 * cardScale * scaleFactor)));
+        FontMetrics fmName = g2.getFontMetrics();
         
         String name = user.getName();
-        if (fm.stringWidth(name) > w - 40) name = name.substring(0, Math.min(name.length(), 8)) + "..";
+        if (fmName.stringWidth(name) > w - 40) name = name.substring(0, Math.min(name.length(), 8)) + "..";
         
-        int textX = x + (w - fm.stringWidth(name)) / 2;
-        g2.drawString(name, textX, textY);
+        int nameX = x + (w - fmName.stringWidth(name)) / 2;
+        g2.drawString(name, nameX, currentY);
 
-        // Subtitle "Level X"
+        // B. Badge Level (Kapsul Berwarna)
+        int userLevel = user.getLevel();
+        String levelText = "Lv. " + userLevel;
+        
+        g2.setFont(new Font("Segoe UI", Font.BOLD, (int)(16 * cardScale * scaleFactor)));
+        FontMetrics fmLvl = g2.getFontMetrics();
+        
+        int badgeW = fmLvl.stringWidth(levelText) + (int)(30 * scaleFactor);
+        int badgeH = (int)(30 * scaleFactor * cardScale);
+        int badgeX = x + (w - badgeW) / 2;
+        int badgeY = currentY + (int)(15 * scaleFactor); // Jarak dari nama
+        
+        g2.setColor(themeColor);
+        g2.fillRoundRect(badgeX, badgeY, badgeW, badgeH, badgeH, badgeH); // Pill shape
+        
+        g2.setColor(Color.WHITE);
+        int lvlTextX = badgeX + (badgeW - fmLvl.stringWidth(levelText)) / 2;
+        int lvlTextY = badgeY + ((badgeH - fmLvl.getHeight()) / 2) + fmLvl.getAscent();
+        g2.drawString(levelText, lvlTextX, lvlTextY);
+
+        // C. Title / Gelar User (Di bawah Badge)
+        String title = getUserTitle(userLevel);
+        
         g2.setColor(Color.GRAY);
-        g2.setFont(new Font("Segoe UI", Font.BOLD, (int)(18 * cardScale * scaleFactor)));
-        String sub = "Petualang Sejati";
-        textX = x + (w - g2.getFontMetrics().stringWidth(sub)) / 2;
-        g2.drawString(sub, textX, textY + (int)(25 * scaleFactor));
+        g2.setFont(new Font("Segoe UI", Font.ITALIC, (int)(18 * cardScale * scaleFactor)));
+        FontMetrics fmTitle = g2.getFontMetrics();
+        
+        int titleX = x + (w - fmTitle.stringWidth(title)) / 2;
+        int titleY = badgeY + badgeH + (int)(25 * scaleFactor); // Jarak dari badge
+        
+        g2.drawString(title, titleX, titleY);
 
-        // --- 7. TOMBOL HAPUS (MENGGUNAKAN ASSET GAMBAR) ---
-        // Hanya gambar jika ini kartu tengah (cardScale > 1.0f menandakan kartu aktif/tengah)
+        // --- 7. TOMBOL HAPUS ---
         if (cardScale > 1.0f) { 
             Rectangle tRect = getTrashBounds(centerX, centerY);
             
@@ -164,7 +208,6 @@ public class UserProfileCard {
                 int drawX = tRect.x;
                 int drawY = tRect.y;
 
-                // Efek Hover: Sedikit membesar
                 if (isTrashHovered) {
                     int grow = (int)(6 * scaleFactor);
                     drawSize += grow;
@@ -172,11 +215,9 @@ public class UserProfileCard {
                     drawY -= grow / 2;
                 }
                 
-                // Gambar Aset Tombol Delete
                 g2.drawImage(trashIconImg, drawX, drawY, drawSize, drawSize, null);
 
             } else {
-                // Fallback jika gambar gagal dimuat (lingkaran merah sederhana)
                 g2.setColor(Color.RED);
                 g2.fillOval(tRect.x, tRect.y, tRect.width, tRect.height);
             }

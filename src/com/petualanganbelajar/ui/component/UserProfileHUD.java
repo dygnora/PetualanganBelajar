@@ -152,17 +152,24 @@ public class UserProfileHUD extends JPanel {
         public AnimatedXPBar() {
             setOpaque(false); setPreferredSize(new Dimension(160, 24));
             animTimer = new Timer(30, e -> {
+                // Animasi naik
                 if (currentProgress < targetProgress) {
                     currentProgress += 0.02f;
                     if (currentProgress > targetProgress) currentProgress = targetProgress;
                     repaint();
+                }
+                // Animasi reset/turun (jika target < current, misal setelah level up)
+                else if (currentProgress > targetProgress) {
+                     currentProgress = targetProgress; // Langsung snap agar tidak aneh saat level up
+                     repaint();
                 }
             });
             animTimer.start();
         }
         
         public void setLevelAndProgress(int lvl, float prog) {
-            this.userLevel = lvl; this.targetProgress = Math.max(0f, Math.min(1f, prog));
+            this.userLevel = lvl; 
+            this.targetProgress = Math.max(0f, Math.min(1f, prog));
         }
         
         @Override 
@@ -185,17 +192,26 @@ public class UserProfileHUD extends JPanel {
                 g2.setClip(null);
             }
             
-            // Text Level
+            // [MODIFIKASI] Logika Teks (Persentase & FULL)
             g2.setColor(Color.WHITE); 
             g2.setFont(new Font("Arial", Font.BOLD, 12));
-            String t = "Lvl " + userLevel;
-            int tw = g2.getFontMetrics().stringWidth(t);
+            
+            String text;
+            if (currentProgress >= 0.99f) {
+                text = "FULL!";
+            } else {
+                int percent = (int)(currentProgress * 100);
+                text = "Lvl " + userLevel + " (" + percent + "%)";
+            }
+            
+            int tw = g2.getFontMetrics().stringWidth(text);
+            
             // Draw Shadow Text
             g2.setColor(new Color(0,0,0,100));
-            g2.drawString(t, (w-tw)/2 + 1, h/2 + 6);
+            g2.drawString(text, (w-tw)/2 + 1, h/2 + 6);
             // Draw Main Text
             g2.setColor(Color.WHITE);
-            g2.drawString(t, (w-tw)/2, h/2 + 5);
+            g2.drawString(text, (w-tw)/2, h/2 + 5);
             
             g2.dispose();
         }

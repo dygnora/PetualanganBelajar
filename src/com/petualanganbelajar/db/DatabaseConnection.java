@@ -11,35 +11,35 @@ public class DatabaseConnection {
 
     // Method untuk mendapatkan lokasi database yang AMAN (Writeable)
     private static String getDatabasePath() {
-        // Ambil folder "AppData" user (C:\Users\NamaUser\AppData\Roaming\)
+        // Ambil folder "AppData" user (Contoh: C:\Users\NamaUser\AppData\Roaming\)
         String appData = System.getenv("APPDATA");
         
-        // Jika bukan Windows (Mac/Linux), pakai User Home
+        // Fallback untuk Mac/Linux (User Home)
         if (appData == null) {
             appData = System.getProperty("user.home");
         }
 
-        // Buat folder khusus untuk game kamu
+        // Buat folder khusus untuk game
         File gameFolder = new File(appData, "PetualanganBelajar");
         if (!gameFolder.exists()) {
             gameFolder.mkdirs(); // Buat folder jika belum ada
         }
 
-        // Return path lengkap ke file database
-        // Hasil: C:\Users\Budi\AppData\Roaming\PetualanganBelajar\game.db
+        // Return connection string lengkap
         return "jdbc:sqlite:" + gameFolder.getAbsolutePath() + File.separator + "game.db";
     }
 
     public static Connection connect() {
         try {
+            // [PENTING] Cek apakah connection null ATAU sudah tertutup (closed)
+            // Ini mencegah error "SQLException: The database has been closed"
             if (connection == null || connection.isClosed()) {
-                // Load Driver
+                
+                // Load Driver SQLite
                 Class.forName("org.sqlite.JDBC");
                 
-                // Koneksi ke path dinamis
+                // Buat koneksi baru ke path dinamis
                 connection = DriverManager.getConnection(getDatabasePath());
-                
-                // System.out.println("LOG: DB Connected -> " + getDatabasePath());
             }
         } catch (ClassNotFoundException | SQLException e) {
             System.err.println("ERROR: Gagal koneksi database! " + e.getMessage());

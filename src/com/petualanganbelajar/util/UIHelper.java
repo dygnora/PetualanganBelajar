@@ -26,21 +26,32 @@ public class UIHelper {
         return null;
     }
 
-    // --- PALET WARNA CERAH (KID FRIENDLY) ---
+    // --- [PERBAIKAN] PALET WARNA CERAH & AKURAT ---
+    // Method ini bisa dipanggil getColorByName ATAU getColorFromName (alias)
     public static Color getColorByName(String name) {
-        switch(name) {
+        if (name == null) return Color.GRAY;
+        switch(name.toUpperCase()) { // Pastikan uppercase agar aman
             case "RED":    return new Color(255, 89, 94);   // Merah Coral
             case "BLUE":   return new Color(25, 130, 196);  // Biru Laut
             case "YELLOW": return new Color(255, 202, 58);  // Kuning Emas
             case "GREEN":  return new Color(138, 201, 38);  // Hijau Apel
             case "ORANGE": return new Color(255, 159, 28);  // Oranye
-            case "PURPLE": return new Color(106, 76, 147);  // Ungu
+            case "PURPLE": return new Color(106, 76, 147);  // Ungu Tua
             case "PINK":   return new Color(255, 112, 166); // Pink
-            case "BROWN":  return new Color(109, 89, 122);  // Cokelat
-            case "BLACK":  return new Color(53, 53, 53);    // Hitam
+            
+            // [FIX WARNA] Cokelat yang benar (SaddleBrown)
+            case "BROWN":  return new Color(139, 69, 19);   
+            
+            case "BLACK":  return new Color(50, 50, 50);    // Hitam (Soft)
             case "WHITE":  return Color.WHITE;
+            case "GRAY":   return Color.GRAY;
             default:       return Color.GRAY;
         }
+    }
+    
+    // Alias untuk kompatibilitas jika ada kode lain memanggil ini
+    public static Color getColorFromName(String name) {
+        return getColorByName(name);
     }
 
     // --- GENERATOR BENTUK (DENGAN OUTLINE PUTIH TEBAL) ---
@@ -69,7 +80,7 @@ public class UIHelper {
 
         Shape shape = null; // Kita tampung bentuknya disini
 
-        switch (shapeType) {
+        switch (shapeType.toUpperCase()) {
             case "CIRCLE": 
                 shape = new java.awt.geom.Ellipse2D.Double(x, y, w, h);
                 break;
@@ -77,6 +88,7 @@ public class UIHelper {
                 shape = new java.awt.geom.Ellipse2D.Double(x, y + h/4, w, h/2);
                 break;
             case "RECT": // Persegi
+            case "SQUARE": // Alias
                 shape = new java.awt.geom.RoundRectangle2D.Double(x, y, w, h, 15, 15);
                 break;
             case "RECTANGLE": // Persegi Panjang
@@ -99,7 +111,7 @@ public class UIHelper {
                 break;
             case "TRAPEZOID": // Trapesium
                 Polygon trap = new Polygon();
-                trap.addPoint(x + w/4, y + h/4);  // Kiri Atas (Mulai agak bawah biar center)
+                trap.addPoint(x + w/4, y + h/4);  // Kiri Atas
                 trap.addPoint(x + w*3/4, y + h/4);// Kanan Atas
                 trap.addPoint(x + w, y + h*3/4);  // Kanan Bawah
                 trap.addPoint(x, y + h*3/4);      // Kiri Bawah
@@ -182,7 +194,6 @@ public class UIHelper {
     private static Shape createPolygonShape(double centerX, double centerY, double radius, int sides) {
         Path2D path = new Path2D.Double();
         for (int i = 0; i < sides; i++) {
-            // -Math.PI / 2 agar titik pertama di atas (jam 12), bukan di kanan
             double angle = i * 2 * Math.PI / sides - Math.PI / 2; 
             double x = centerX + Math.cos(angle) * radius;
             double y = centerY + Math.sin(angle) * radius;
@@ -195,38 +206,27 @@ public class UIHelper {
 
     private static Shape createHeartShape(int x, int y, int w, int h) {
         Path2D path = new Path2D.Double();
-        // Kurva Bezier untuk hati yang mulus
-        path.moveTo(x + w / 2.0, y + h / 3.0); // Titik tengah atas lembah
-        // Lengkungan kiri atas
+        path.moveTo(x + w / 2.0, y + h / 3.0); 
         path.curveTo(x + w / 2.0, y, x, y, x, y + h / 3.0); 
-        // Garis ke bawah
         path.curveTo(x, y + h * 0.6, x + w / 2.0, y + h * 0.9, x + w / 2.0, y + h); 
-        // Garis ke kanan atas
         path.curveTo(x + w / 2.0, y + h * 0.9, x + w, y + h * 0.6, x + w, y + h / 3.0); 
-        // Lengkungan kanan atas
         path.curveTo(x + w, y, x + w / 2.0, y, x + w / 2.0, y + h / 3.0); 
         path.closePath();
         return path;
     }
 
     // --- HELPER 3D (DIGAMBAR LANGSUNG) ---
-    // 3D juga kita kasih outline putih manual biar konsisten
     private static void drawCube(Graphics2D g, int x, int y, int w, int h, Color c) {
-        // Outline Putih Background
         g.setStroke(new BasicStroke(6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         g.setColor(Color.WHITE);
-        g.drawRect(x + w/4, y + h/4, w - w/4, h - h/4); // Kotak Depan dummy outline
+        g.drawRect(x + w/4, y + h/4, w - w/4, h - h/4); 
         
-        // Gambar Asli
         int depth = w / 4;
         int fw = w - depth; int fh = h - depth;
         g.setStroke(new BasicStroke(1.5f));
         
-        // Belakang
         g.setColor(c.darker()); g.fillRect(x + depth, y, fw, fh);
-        // Depan
         g.setColor(c); g.fillRect(x, y + depth, fw, fh);
-        // Garis
         g.setColor(new Color(0,0,0,50));
         g.drawRect(x + depth, y, fw, fh);
         g.drawRect(x, y + depth, fw, fh);
@@ -237,17 +237,15 @@ public class UIHelper {
     }
 
     private static void drawCylinder(Graphics2D g, int x, int y, int w, int h, Color c) {
-        // Outline Putih Background (Simple block)
         g.setColor(Color.WHITE);
         g.setStroke(new BasicStroke(6f));
         g.drawRect(x, y + h/8, w, h - h/4);
 
         int ovalH = h / 4;
         g.setColor(c); g.fillRect(x, y + ovalH/2, w, h - ovalH);
-        g.setColor(c); g.fillOval(x, y + h - ovalH, w, ovalH); // Bawah
-        g.setColor(c.brighter()); g.fillOval(x, y, w, ovalH); // Atas
+        g.setColor(c); g.fillOval(x, y + h - ovalH, w, ovalH); 
+        g.setColor(c.brighter()); g.fillOval(x, y, w, ovalH); 
         
-        // Garis
         g.setColor(new Color(0,0,0,50)); g.setStroke(new BasicStroke(1.5f));
         g.drawLine(x, y + ovalH/2, x, y + h - ovalH/2);
         g.drawLine(x + w, y + ovalH/2, x + w, y + h - ovalH/2);
