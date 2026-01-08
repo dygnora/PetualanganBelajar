@@ -118,7 +118,7 @@ public class GameScreen extends JPanel {
 
         ModernBadgePanel levelBadge = new ModernBadgePanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
         lblLevelInfo = new JLabel("LEVEL 1"); 
-        lblLevelInfo.setFont(new Font("Comic Sans MS", Font.BOLD, 28)); lblLevelInfo.setForeground(Color.WHITE);
+        lblLevelInfo.setFont(new Font("Comic Sans MS", Font.BOLD, 36)); lblLevelInfo.setForeground(Color.WHITE);
         levelBadge.add(lblLevelInfo);
 
         JPanel rightContainer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
@@ -144,7 +144,7 @@ public class GameScreen extends JPanel {
         questionPanel.setBorder(new EmptyBorder(20, 30, 20, 30));
 
         lblInstruction = new JLabel("Instruksi");
-        lblInstruction.setFont(new Font("Comic Sans MS", Font.BOLD, 32));
+        lblInstruction.setFont(new Font("Comic Sans MS", Font.BOLD, 48));
         lblInstruction.setForeground(new Color(80, 80, 80));
         lblInstruction.setHorizontalAlignment(SwingConstants.CENTER);
 
@@ -479,8 +479,8 @@ public class GameScreen extends JPanel {
     
     private JPanel createStatBadge(String d, String i, boolean r) { 
         ModernBadgePanel b = new ModernBadgePanel(new FlowLayout(r?FlowLayout.RIGHT:FlowLayout.LEFT,0,0)); 
-        JLabel l=new JLabel(d); l.setFont(new Font("Comic Sans MS", Font.BOLD, 18)); l.setForeground(Color.WHITE);
-        ImageIcon ic=UIHelper.loadIcon(i,28,28); 
+        JLabel l=new JLabel(d); l.setFont(new Font("Comic Sans MS", Font.BOLD, 20)); l.setForeground(Color.WHITE);
+        ImageIcon ic=UIHelper.loadIcon(i,40,40); 
         if(ic!=null){l.setIcon(ic);l.setIconTextGap(12);l.setHorizontalTextPosition(r?SwingConstants.LEFT:SwingConstants.RIGHT);l.setVerticalTextPosition(SwingConstants.CENTER);} 
         b.add(l); return b; 
     }

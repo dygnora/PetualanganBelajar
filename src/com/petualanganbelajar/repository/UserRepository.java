@@ -3,19 +3,23 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
 package com.petualanganbelajar.repository;
+
 import com.petualanganbelajar.db.DatabaseConnection;
 import com.petualanganbelajar.model.UserModel;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+
 /**
  *
  * @author DD
  */
 public class UserRepository {
+    
     // 1. AMBIL SEMUA USER AKTIF (Maksimal 3 slot)
     public List<UserModel> getAllActiveUsers() {
         List<UserModel> users = new ArrayList<>();
+        // [UPDATE SQL] Tambahkan 'level' di SELECT
         String sql = "SELECT * FROM users WHERE is_active = 1 ORDER BY id ASC";
 
         try (Connection conn = DatabaseConnection.connect();
@@ -27,6 +31,7 @@ public class UserRepository {
                     rs.getInt("id"),
                     rs.getString("name"),
                     rs.getString("avatar"),
+                    rs.getInt("level"), // [BARU] Ambil level dari DB
                     rs.getInt("bgm_volume"),
                     rs.getInt("sfx_volume"),
                     rs.getInt("is_active") == 1
@@ -47,6 +52,7 @@ public class UserRepository {
             return false;
         }
 
+        // [UPDATE SQL] Level default 1 sudah diatur di database (DEFAULT 1), jadi tidak perlu di-insert manual
         String sql = "INSERT INTO users(name, avatar) VALUES(?, ?)";
 
         try (Connection conn = DatabaseConnection.connect();
@@ -98,6 +104,25 @@ public class UserRepository {
             
         } catch (SQLException e) {
             System.err.println("Gagal update volume: " + e.getMessage());
+        }
+    }
+    
+    // 5. [BARU] UPDATE LEVEL USER
+    // Method ini akan dipanggil saat game selesai jika XP cukup untuk naik level
+    public void updateUserLevel(int userId, int newLevel) {
+        String sql = "UPDATE users SET level = ? WHERE id = ?";
+        
+        try (Connection conn = DatabaseConnection.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setInt(1, newLevel);
+            pstmt.setInt(2, userId);
+            
+            pstmt.executeUpdate();
+            System.out.println("LOG: Level user " + userId + " naik ke level " + newLevel);
+            
+        } catch (SQLException e) {
+            System.err.println("Gagal update level: " + e.getMessage());
         }
     }
     

@@ -11,18 +11,19 @@ package com.petualanganbelajar.model;
 public class LeaderboardEntry {
     private String playerName;
     private String avatar;
-    private String moduleName;
-    private int score;
+    private int level; // [BARU] Level User
+    private int score; // Total Score
 
-    public LeaderboardEntry(String playerName, String avatar, String moduleName, int score) {
+    // Constructor Baru (Tanpa ModuleName, Tambah Level)
+    public LeaderboardEntry(String playerName, String avatar, int level, int score) {
         this.playerName = playerName;
         this.avatar = avatar;
-        this.moduleName = moduleName;
+        this.level = level;
         this.score = score;
     }
 
     public String getPlayerName() { return playerName; }
     public String getAvatar() { return avatar; }
-    public String getModuleName() { return moduleName; }
+    public int getLevel() { return level; } // [BARU]
     public int getScore() { return score; }
 }

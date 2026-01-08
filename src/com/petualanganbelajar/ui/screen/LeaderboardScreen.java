@@ -9,81 +9,156 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.plaf.basic.BasicScrollBarUI;
 import java.awt.*;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.io.File;
 import java.net.URL;
 import java.util.List;
 
 public class LeaderboardScreen extends JPanel {
 
-    // --- ASSETS ---
     private Image bgImage;
     private Image titleImage;
     private final LeaderboardRepository repo = new LeaderboardRepository();
     private JPanel listContainer;
+    
+    private JPanel headerPanel;
+    private JPanel statsPanel;
+    private JPanel contentWrapper;
+    private JScrollPane scrollPane;
+    private JPanel footerPanel;
 
-    // --- STATS COMPONENTS ---
     private StatCard totalCard;
     private StatCard avgCard;
     private StatCard topCard;
+    private JLabel titleLabel;
+    private GradientButton btnBack;
 
-    // --- THEME CONSTANTS ---
     private static final Color COL_BG_DARK = new Color(15, 23, 42); 
     private static final Color COL_BG_LIGHT = new Color(30, 41, 59); 
     
-    // Accent Colors
     private static final Color COL_ACCENT_BLUE = new Color(59, 130, 246);
     private static final Color COL_ACCENT_GOLD = new Color(251, 191, 36);
     private static final Color COL_ACCENT_SILVER = new Color(192, 192, 192);
     private static final Color COL_ACCENT_BRONZE = new Color(205, 127, 50);
     private static final Color COL_ACCENT_RED = new Color(220, 38, 38);
 
-    // Text Colors
     private static final Color COL_TEXT_WHITE = new Color(248, 250, 252); 
     private static final Color COL_TEXT_GRAY = new Color(160, 174, 192);  
+
+    private final float BASE_W = 1920f;
+    private final float BASE_H = 1080f;
+    private float scaleFactor = 1.0f;
 
     public LeaderboardScreen() {
         setLayout(new BorderLayout());
         loadAssets();
         initUI();
+        
+        this.addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentResized(ComponentEvent e) {
+                calculateScaleFactor();
+                updateResponsiveLayout();
+            }
+        });
+    }
+    
+    private void calculateScaleFactor() {
+        if (getWidth() <= 0 || getHeight() <= 0) return;
+        float sW = (float) getWidth() / BASE_W;
+        float sH = (float) getHeight() / BASE_H;
+        this.scaleFactor = Math.min(sW, sH);
+        if (this.scaleFactor < 0.5f) this.scaleFactor = 0.5f;
+    }
+
+    private void updateResponsiveLayout() {
+        if (headerPanel != null) {
+            headerPanel.setPreferredSize(new Dimension((int)(800*scaleFactor), (int)(400*scaleFactor)));
+            headerPanel.setBorder(new EmptyBorder((int)(-60*scaleFactor), 0, (int)(-80*scaleFactor), 0));
+        }
+        
+        if (titleLabel != null) {
+            if (titleImage != null) {
+                Image scaled = titleImage.getScaledInstance((int)(700*scaleFactor), (int)(450*scaleFactor), Image.SCALE_SMOOTH);
+                titleLabel.setIcon(new ImageIcon(scaled));
+                titleLabel.setText("");
+            } else {
+                titleLabel.setFont(new Font("Segoe UI", Font.BOLD, (int)(72 * scaleFactor)));
+            }
+        }
+
+        if (statsPanel != null) {
+            statsPanel.setPreferredSize(new Dimension((int)(900*scaleFactor), (int)(180*scaleFactor))); 
+            statsPanel.setBorder(new EmptyBorder((int)(30*scaleFactor), 0, (int)(20*scaleFactor), 0));
+            ((FlowLayout)statsPanel.getLayout()).setHgap((int)(30*scaleFactor));
+        }
+        
+        if (totalCard != null) totalCard.updateScale(scaleFactor);
+        if (avgCard != null) avgCard.updateScale(scaleFactor);
+        if (topCard != null) topCard.updateScale(scaleFactor);
+
+        if (contentWrapper != null) {
+            contentWrapper.setBorder(new EmptyBorder(0, (int)(20*scaleFactor), 0, (int)(20*scaleFactor)));
+        }
+        
+        if (scrollPane != null) {
+            scrollPane.setPreferredSize(new Dimension((int)(900*scaleFactor), (int)(450*scaleFactor)));
+            scrollPane.getVerticalScrollBar().setUnitIncrement((int)(20*scaleFactor));
+        }
+
+        for (Component c : listContainer.getComponents()) {
+            if (c instanceof ScoreCard) {
+                ((ScoreCard)c).updateScale(scaleFactor);
+            }
+        }
+        
+        if (footerPanel != null) {
+            footerPanel.setPreferredSize(new Dimension((int)(800*scaleFactor), (int)(120*scaleFactor)));
+            footerPanel.setBorder(new EmptyBorder((int)(20*scaleFactor), 0, 0, 0));
+        }
+        if (btnBack != null) {
+            btnBack.updateScale(scaleFactor);
+        }
+
+        revalidate();
+        repaint();
     }
 
     @Override
     public void setVisible(boolean flag) {
         super.setVisible(flag);
         if (flag) {
-            loadDataAsync(); // UBAH: Panggil versi Async
+            SwingUtilities.invokeLater(() -> {
+                calculateScaleFactor();
+                loadDataAsync(); 
+            });
         }
     }
 
-    // --- LOGIC BARU: SWING WORKER (ANTI-LAG) ---
     private void loadDataAsync() {
-        // 1. Tampilkan status loading sementara
         listContainer.removeAll();
         
         JLabel loading = new JLabel("Sedang memuat data...", SwingConstants.CENTER);
-        loading.setFont(new Font("Segoe UI", Font.ITALIC, 18));
+        loading.setFont(new Font("Segoe UI", Font.ITALIC, (int)(24*scaleFactor)));
         loading.setForeground(COL_TEXT_GRAY);
         loading.setAlignmentX(Component.CENTER_ALIGNMENT);
         
-        listContainer.add(Box.createVerticalStrut(50));
+        listContainer.add(Box.createVerticalStrut((int)(50*scaleFactor)));
         listContainer.add(loading);
         listContainer.revalidate();
         listContainer.repaint();
 
-        // 2. Jalankan Worker di Background
         new SwingWorker<List<LeaderboardEntry>, Void>() {
             @Override
             protected List<LeaderboardEntry> doInBackground() throws Exception {
-                // Proses berat (Database) terjadi di sini
                 return repo.getTopScores();
             }
 
             @Override
             protected void done() {
                 try {
-                    // Update UI setelah data siap
                     updateUIWithData(get());
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -92,18 +167,17 @@ public class LeaderboardScreen extends JPanel {
         }.execute();
     }
 
-    // Method ini isinya sama persis dengan refreshData() lama Anda
     private void updateUIWithData(List<LeaderboardEntry> data) {
-        listContainer.removeAll(); // Hapus loading text
+        listContainer.removeAll(); 
 
         if (data.isEmpty()) {
             updateStats(0, 0, 0);
             
             JLabel empty = new JLabel("Belum ada data juara", SwingConstants.CENTER);
-            empty.setFont(new Font("Segoe UI", Font.BOLD, 24));
+            empty.setFont(new Font("Segoe UI", Font.BOLD, (int)(32 * scaleFactor)));
             empty.setForeground(COL_TEXT_GRAY);
             empty.setAlignmentX(Component.CENTER_ALIGNMENT);
-            listContainer.add(Box.createVerticalStrut(50));
+            listContainer.add(Box.createVerticalStrut((int)(50 * scaleFactor)));
             listContainer.add(empty);
         } else {
             int total = data.size();
@@ -117,10 +191,15 @@ public class LeaderboardScreen extends JPanel {
             for (LeaderboardEntry e : data) {
                 String avatar = (e.getAvatar() != null) ? e.getAvatar() : "avatar_" + ((rank % 2) + 1) + ".png";
                 
-                ScoreCard card = new ScoreCard(rank, e.getPlayerName(), e.getScore(), avatar);
+                // [UPDATE] MENGGUNAKAN FITUR LEVEL DARI DATABASE
+                // Kita ambil e.getLevel() yang sudah tersedia di LeaderboardEntry
+                ScoreCard card = new ScoreCard(rank, e.getPlayerName(), e.getScore(), e.getLevel(), avatar);
+                
+                card.updateScale(scaleFactor); 
                 card.setAlignmentX(Component.CENTER_ALIGNMENT); 
                 listContainer.add(card);
-                listContainer.add(Box.createVerticalStrut(10));
+                
+                listContainer.add(Box.createVerticalStrut((int)(15 * scaleFactor))); 
                 rank++;
             }
         }
@@ -131,7 +210,6 @@ public class LeaderboardScreen extends JPanel {
 
     private void loadAssets() {
         try {
-            // UBAH KE GETRESOURCE AGAR SUPPORT JAR (Sesuai Audit)
             URL bgUrl = getClass().getResource("/images/bg_menu.png");
             if (bgUrl != null) bgImage = new ImageIcon(bgUrl).getImage();
 
@@ -141,18 +219,13 @@ public class LeaderboardScreen extends JPanel {
     }
 
     private void initUI() {
-        // --- 1. HEADER (NORTH) ---
         add(createHeader(), BorderLayout.NORTH);
 
-        // --- 2. CENTER CONTENT (WRAPPER) ---
-        JPanel contentWrapper = new JPanel(new BorderLayout());
+        contentWrapper = new JPanel(new BorderLayout());
         contentWrapper.setOpaque(false);
-        contentWrapper.setBorder(new EmptyBorder(0, 20, 0, 20)); 
 
-        // A. STATS PANEL (NORTH of Center)
         contentWrapper.add(createStatsPanel(), BorderLayout.NORTH);
 
-        // B. LIST CONTAINER (CENTER of Center)
         JPanel listWrapper = new JPanel(new GridBagLayout());
         listWrapper.setOpaque(false);
 
@@ -160,77 +233,62 @@ public class LeaderboardScreen extends JPanel {
         listContainer.setLayout(new BoxLayout(listContainer, BoxLayout.Y_AXIS));
         listContainer.setOpaque(false);
         
-        JScrollPane scroll = new JScrollPane(listContainer);
-        scroll.setOpaque(false);
-        scroll.getViewport().setOpaque(false);
-        scroll.setBorder(null);
-        scroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-        scroll.getVerticalScrollBar().setUnitIncrement(20);
-        scroll.getVerticalScrollBar().setUI(new ModernScrollBar());
+        scrollPane = new JScrollPane(listContainer);
+        scrollPane.setOpaque(false);
+        scrollPane.getViewport().setOpaque(false);
+        scrollPane.setBorder(null);
+        scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        scrollPane.getVerticalScrollBar().setUI(new ModernScrollBar());
         
-        scroll.setPreferredSize(new Dimension(650, 320)); 
-
-        listWrapper.add(scroll); 
+        listWrapper.add(scrollPane); 
         contentWrapper.add(listWrapper, BorderLayout.CENTER);
         
         add(contentWrapper, BorderLayout.CENTER);
-
-        // --- 3. FOOTER (SOUTH) ---
         add(createFooter(), BorderLayout.SOUTH);
     }
 
     private JPanel createHeader() {
-        JPanel header = new JPanel(new BorderLayout());
-        header.setOpaque(false);
-        header.setPreferredSize(new Dimension(800, 200));
-        header.setBorder(new EmptyBorder(-80, 0, -100, 0));
+        headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setOpaque(false);
 
-        JLabel titleLabel = new JLabel();
+        titleLabel = new JLabel();
         titleLabel.setHorizontalAlignment(SwingConstants.CENTER);
         
-        if (titleImage != null) {
-            Image scaled = titleImage.getScaledInstance(500, 300, Image.SCALE_SMOOTH);
-            titleLabel.setIcon(new ImageIcon(scaled));
-        } else {
+        if (titleImage == null) {
             titleLabel.setText("PAPAN JUARA");
-            titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 48));
             titleLabel.setForeground(COL_TEXT_WHITE);
         }
-        header.add(titleLabel, BorderLayout.CENTER);
-        return header;
+        headerPanel.add(titleLabel, BorderLayout.CENTER);
+        return headerPanel;
     }
 
     private JPanel createStatsPanel() {
-        JPanel stats = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 0));
-        stats.setOpaque(false);
-        stats.setPreferredSize(new Dimension(800, 120));
-        stats.setBorder(new EmptyBorder(30, 0, 10, 0));
+        statsPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 0));
+        statsPanel.setOpaque(false);
 
         totalCard = new StatCard("Total Pemain", "0", "👥", COL_ACCENT_BLUE);
         avgCard = new StatCard("Rata-rata", "0 Poin", "⭐", COL_ACCENT_GOLD);
         topCard = new StatCard("Tertinggi", "0 Poin", "🔥", COL_ACCENT_RED);
 
-        stats.add(totalCard);
-        stats.add(avgCard);
-        stats.add(topCard);
+        statsPanel.add(totalCard);
+        statsPanel.add(avgCard);
+        statsPanel.add(topCard);
         
-        return stats;
+        return statsPanel;
     }
 
     private JPanel createFooter() {
-        JPanel p = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        p.setOpaque(false);
-        p.setPreferredSize(new Dimension(800, 80));
-        p.setBorder(new EmptyBorder(10, 0, 0, 0));
+        footerPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        footerPanel.setOpaque(false);
         
-        GradientButton btnBack = new GradientButton("KEMBALI", new Color(220, 38, 38), new Color(153, 27, 27));
+        btnBack = new GradientButton("KEMBALI", new Color(220, 38, 38), new Color(153, 27, 27));
         btnBack.addActionListener(e -> { 
             playSound("click"); 
             ScreenManager.getInstance().showScreen("MAIN_MENU"); 
         });
 
-        p.add(btnBack);
-        return p;
+        footerPanel.add(btnBack);
+        return footerPanel;
     }
 
     private void updateStats(int total, int avg, int max) {
@@ -260,13 +318,14 @@ public class LeaderboardScreen extends JPanel {
     }
 
     // ============================================================
-    // COMPONENTS (Inner Classes - Tidak Diubah)
+    // COMPONENTS (Inner Classes)
     // ============================================================
 
     class StatCard extends JPanel {
         private String value;
         private final String label, icon;
         private final Color accentColor;
+        private float scale = 1.0f;
 
         StatCard(String label, String value, String icon, Color color) {
             this.label = label;
@@ -274,7 +333,12 @@ public class LeaderboardScreen extends JPanel {
             this.icon = icon;
             this.accentColor = color;
             setOpaque(false);
-            setPreferredSize(new Dimension(210, 75));
+        }
+        
+        void updateScale(float s) {
+            this.scale = s;
+            setPreferredSize(new Dimension((int)(250*s), (int)(90*s)));
+            revalidate(); repaint();
         }
 
         void setValue(String value) {
@@ -287,24 +351,26 @@ public class LeaderboardScreen extends JPanel {
             Graphics2D g2 = (Graphics2D) g;
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
+            int arc = (int)(20 * scale);
+
             g2.setColor(new Color(30, 41, 59, 220));
-            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 15, 15);
+            g2.fillRoundRect(0, 0, getWidth(), getHeight(), arc, arc);
 
             g2.setColor(new Color(accentColor.getRed(), accentColor.getGreen(), accentColor.getBlue(), 120));
             g2.setStroke(new BasicStroke(1));
-            g2.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, 15, 15);
+            g2.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, arc, arc);
 
             g2.setColor(accentColor);
-            g2.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 28)); 
-            g2.drawString(icon, 15, 48);
+            g2.setFont(new Font("Segoe UI Emoji", Font.PLAIN, (int)(36*scale))); 
+            g2.drawString(icon, (int)(20*scale), (int)(55*scale));
 
-            g2.setFont(new Font("Segoe UI", Font.BOLD, 22));
+            g2.setFont(new Font("Segoe UI", Font.BOLD, (int)(26*scale))); 
             g2.setColor(COL_TEXT_WHITE);
-            g2.drawString(value, 60, 32);
+            g2.drawString(value, (int)(75*scale), (int)(38*scale));
 
-            g2.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+            g2.setFont(new Font("Segoe UI", Font.PLAIN, (int)(14*scale))); 
             g2.setColor(COL_TEXT_GRAY);
-            g2.drawString(label, 60, 52);
+            g2.drawString(label, (int)(75*scale), (int)(62*scale));
         }
     }
 
@@ -312,17 +378,20 @@ public class LeaderboardScreen extends JPanel {
         private final int rank;
         private final String name;
         private final int score;
+        private final int level; // [FITUR LEVEL] Variable level
         private Image avatar;
         private boolean isHovered = false;
+        private float scale = 1.0f; 
 
-        ScoreCard(int rank, String name, int score, String avatarFile) {
-            this.rank = rank; this.name = name; this.score = score;
+        // [FITUR LEVEL] Constructor diupdate menerima parameter level
+        ScoreCard(int rank, String name, int score, int level, String avatarFile) {
+            this.rank = rank; 
+            this.name = name; 
+            this.score = score;
+            this.level = level; // Simpan level
             setOpaque(false);
-            setPreferredSize(new Dimension(600, 85)); 
-            setMaximumSize(new Dimension(600, 85));
             
             try {
-                // FIXED: Resource Loading
                 URL url = getClass().getResource("/images/" + avatarFile);
                 if(url != null) avatar = new ImageIcon(url).getImage();
             } catch(Exception ignored) {}
@@ -331,6 +400,13 @@ public class LeaderboardScreen extends JPanel {
                 public void mouseEntered(MouseEvent e) { isHovered = true; repaint(); }
                 public void mouseExited(MouseEvent e) { isHovered = false; repaint(); }
             });
+        }
+        
+        void updateScale(float s) {
+            this.scale = s;
+            setPreferredSize(new Dimension((int)(850*s), (int)(110*s))); 
+            setMaximumSize(new Dimension((int)(850*s), (int)(110*s)));
+            revalidate(); repaint();
         }
 
         @Override
@@ -344,8 +420,10 @@ public class LeaderboardScreen extends JPanel {
 
             if(isHovered) g2.translate(0, -2);
 
+            int arc = (int)(25 * scale);
+            
             g2.setColor(new Color(30, 41, 59, 220));
-            g2.fillRoundRect(0, 0, w, h, 20, 20);
+            g2.fillRoundRect(0, 0, w, h, arc, arc);
             
             Color rankColor;
             if (rank == 1) rankColor = COL_ACCENT_GOLD;
@@ -354,31 +432,39 @@ public class LeaderboardScreen extends JPanel {
             else rankColor = COL_ACCENT_BLUE.darker();
 
             g2.setColor(rankColor);
-            g2.setStroke(new BasicStroke(2));
-            g2.drawRoundRect(1, 1, w-2, h-2, 20, 20);
+            g2.setStroke(new BasicStroke(Math.max(1, (int)(3*scale)))); 
+            g2.drawRoundRect(1, 1, w-2, h-2, arc, arc);
 
+            // RANK NUMBER
             g2.setColor(rank <= 3 ? rankColor : COL_TEXT_WHITE);
-            g2.setFont(new Font("Arial", Font.BOLD, 26));
-            g2.drawString("#" + rank, 25, 50);
+            g2.setFont(new Font("Arial", Font.BOLD, (int)(32*scale)));
+            g2.drawString("#" + rank, (int)(30*scale), (int)(65*scale));
 
-            if(avatar != null) g2.drawImage(avatar, 85, 12, 60, 60, this);
+            // AVATAR
+            if(avatar != null) {
+                int avSize = (int)(75*scale);
+                g2.drawImage(avatar, (int)(100*scale), (int)(18*scale), avSize, avSize, this);
+            }
             
+            // NAMA PLAYER
             g2.setColor(COL_TEXT_WHITE);
-            g2.setFont(new Font("Segoe UI", Font.BOLD, 20));
-            g2.drawString(name, 165, 38);
+            g2.setFont(new Font("Segoe UI", Font.BOLD, (int)(28*scale)));
+            g2.drawString(name, (int)(200*scale), (int)(50*scale));
             
+            // [FITUR LEVEL] Tampilkan Level dari variable
             g2.setColor(COL_TEXT_GRAY);
-            g2.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-            g2.drawString("Level " + (score/100), 165, 60);
+            g2.setFont(new Font("Segoe UI", Font.PLAIN, (int)(16*scale)));
+            g2.drawString("Level " + level, (int)(200*scale), (int)(80*scale));
 
+            // SCORE
             g2.setColor(COL_ACCENT_GOLD); 
-            g2.setFont(new Font("Segoe UI", Font.BOLD, 22));
+            g2.setFont(new Font("Segoe UI", Font.BOLD, (int)(30*scale)));
             String s = score + " Poin";
-            g2.drawString(s, w - g2.getFontMetrics().stringWidth(s) - 30, 50);
+            g2.drawString(s, w - g2.getFontMetrics().stringWidth(s) - (int)(40*scale), (int)(65*scale));
 
             if (rank == 1) {
-                g2.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 24));
-                g2.drawString("👑", 10, 25);
+                g2.setFont(new Font("Segoe UI Emoji", Font.PLAIN, (int)(30*scale)));
+                g2.drawString("👑", (int)(10*scale), (int)(30*scale));
             }
         }
     }
@@ -387,6 +473,7 @@ public class LeaderboardScreen extends JPanel {
         private final Color color1;
         private final Color color2;
         private boolean hover;
+        private float scale = 1.0f; 
 
         GradientButton(String text, Color c1, Color c2) {
             super(text);
@@ -396,14 +483,19 @@ public class LeaderboardScreen extends JPanel {
             setFocusPainted(false);
             setBorderPainted(false);
             setForeground(Color.WHITE);
-            setFont(new Font("Segoe UI", Font.BOLD, 18));
-            setPreferredSize(new Dimension(200, 55));
             setCursor(new Cursor(Cursor.HAND_CURSOR));
             
             addMouseListener(new MouseAdapter() {
                 public void mouseEntered(MouseEvent e) { hover = true; repaint(); }
                 public void mouseExited(MouseEvent e) { hover = false; repaint(); }
             });
+        }
+        
+        void updateScale(float s) {
+            this.scale = s;
+            setFont(new Font("Segoe UI", Font.BOLD, (int)(22*s)));
+            setPreferredSize(new Dimension((int)(240*s), (int)(65*s)));
+            revalidate(); repaint();
         }
 
         @Override
@@ -413,18 +505,19 @@ public class LeaderboardScreen extends JPanel {
             
             int w = getWidth();
             int h = getHeight();
+            int arc = (int)(30 * scale);
 
             g2.setColor(new Color(0,0,0,60));
-            g2.fillRoundRect(3, 5, w-6, h-5, 25, 25);
+            g2.fillRoundRect((int)(3*scale), (int)(5*scale), w-(int)(6*scale), h-(int)(5*scale), arc, arc);
 
             GradientPaint gp = new GradientPaint(0, 0, hover ? color1.brighter() : color1, 
                                                  0, h, hover ? color2.brighter() : color2);
             g2.setPaint(gp);
-            g2.fillRoundRect(0, 0, w, h-5, 25, 25);
+            g2.fillRoundRect(0, 0, w, h-(int)(5*scale), arc, arc);
 
             FontMetrics fm = g2.getFontMetrics();
             int x = (w - fm.stringWidth(getText())) / 2;
-            int y = ((h - 5 - fm.getHeight()) / 2) + fm.getAscent();
+            int y = ((h - (int)(5*scale) - fm.getHeight()) / 2) + fm.getAscent();
             
             g2.setColor(new Color(0,0,0,40));
             g2.drawString(getText(), x+1, y+1);

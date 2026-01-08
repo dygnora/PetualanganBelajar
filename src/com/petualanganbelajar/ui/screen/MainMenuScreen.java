@@ -6,6 +6,8 @@ import com.petualanganbelajar.repository.UserRepository;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.net.URL;
@@ -15,46 +17,125 @@ public class MainMenuScreen extends JPanel {
     private Image bgImage;
     private final UserRepository userRepo;
     
-    // Simpan referensi tombol lanjutkan agar bisa diupdate
+    // Referensi tombol agar bisa di-resize
     private ImageButton btnContinue;
+    private ImageButton btnNewGame;
+    private ImageButton btnLeaderboard;
+    private ImageButton btnSettings;
+    private ImageButton btnExit;
+    private JPanel centerMenuPanel; 
+
+    // Variabel Skala
+    private final float BASE_W = 1920f;
+    private final float BASE_H = 1080f;
+    private float scaleFactor = 1.0f;
 
     public MainMenuScreen() {
         this.userRepo = new UserRepository();
-        setLayout(new GridBagLayout()); // Layout Utama
+        setLayout(new GridBagLayout()); 
         loadAssets();
         initUI();
+        
+        // Listener Resize
+        this.addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentResized(ComponentEvent e) {
+                calculateScaleFactor();
+                updateResponsiveLayout();
+            }
+        });
     }
     
-    // --- UPDATE REALTIME SAAT LAYAR MUNCUL ---
+    // --- HITUNG SKALA ---
+    private void calculateScaleFactor() {
+        if (getWidth() <= 0 || getHeight() <= 0) return;
+        float sW = (float) getWidth() / BASE_W;
+        float sH = (float) getHeight() / BASE_H;
+        this.scaleFactor = Math.min(sW, sH);
+        
+        if (this.scaleFactor < 0.5f) this.scaleFactor = 0.5f;
+    }
+
+    // --- [UPDATE] UKURAN TOMBOL JUMBO DI SINI ---
+    private void updateResponsiveLayout() {
+        if (centerMenuPanel == null) return;
+        
+        GridBagLayout layout = (GridBagLayout) centerMenuPanel.getLayout();
+
+        // 1. TOMBOL CONTINUE (Diperbesar dari 400x220 -> 520x280)
+        if (btnContinue != null) {
+            btnContinue.setButtonSize((int)(600 * scaleFactor), (int)(320 * scaleFactor));
+            GridBagConstraints gbc = layout.getConstraints(btnContinue);
+            // Insets disesuaikan agar tumpukan pas
+            gbc.insets = new Insets((int)(100 * scaleFactor), 0, (int)(-95 * scaleFactor), 0);
+            layout.setConstraints(btnContinue, gbc);
+        }
+
+        // 2. TOMBOL NEW GAME (Diperbesar dari 400x200 -> 520x260)
+        if (btnNewGame != null) {
+            btnNewGame.setButtonSize((int)(600 * scaleFactor), (int)(300 * scaleFactor));
+            GridBagConstraints gbc = layout.getConstraints(btnNewGame);
+            gbc.insets = new Insets((int)(-20 * scaleFactor), 0, (int)(-60 * scaleFactor), 0);
+            layout.setConstraints(btnNewGame, gbc);
+        }
+
+        // 3. TOMBOL LEADERBOARD (Diperbesar dari 380x190 -> 480x240)
+        if (btnLeaderboard != null) {
+            btnLeaderboard.setButtonSize((int)(600 * scaleFactor), (int)(260 * scaleFactor));
+            GridBagConstraints gbc = layout.getConstraints(btnLeaderboard);
+            gbc.insets = new Insets((int)(-20 * scaleFactor), 0, (int)(-70 * scaleFactor), 0);
+            layout.setConstraints(btnLeaderboard, gbc);
+        }
+
+        // 4. TOMBOL SETTINGS (Diperbesar dari 400x250 -> 520x320)
+        if (btnSettings != null) {
+            btnSettings.setButtonSize((int)(600 * scaleFactor), (int)(340 * scaleFactor));
+            GridBagConstraints gbc = layout.getConstraints(btnSettings);
+            gbc.insets = new Insets((int)(-70 * scaleFactor), 0, (int)(-40 * scaleFactor), 0);
+            layout.setConstraints(btnSettings, gbc);
+        }
+
+        // 5. TOMBOL EXIT (Diperbesar dari 380x190 -> 480x240)
+        if (btnExit != null) {
+            btnExit.setButtonSize((int)(550 * scaleFactor), (int)(280 * scaleFactor));
+            GridBagConstraints gbc = layout.getConstraints(btnExit);
+            gbc.insets = new Insets((int)(-40 * scaleFactor), 0, 0, 0);
+            layout.setConstraints(btnExit, gbc);
+        }
+        
+        centerMenuPanel.revalidate();
+        centerMenuPanel.repaint();
+    }
+    
     @Override
     public void setVisible(boolean aFlag) {
         super.setVisible(aFlag);
         if (aFlag) {
-            // Mainkan BGM Menu saat layar ini muncul
             try {
                 SoundPlayer.getInstance().playBGM("bgm_menu.wav");
             } catch (Exception e) {}
             
             updateContinueButtonState();
+            
+            SwingUtilities.invokeLater(() -> {
+                calculateScaleFactor();
+                updateResponsiveLayout();
+            });
         }
     }
 
     private void updateContinueButtonState() {
         if (btnContinue == null) return;
 
-        // Cek database terbaru
         boolean hasUser = !userRepo.getAllActiveUsers().isEmpty();
         
-        // Update Gambar
         String imgName = hasUser ? "btn_continue.png" : "btn_not_continue.png";
         btnContinue.setImage(imgName); 
 
-        // Update Logika
         if (hasUser) {
             btnContinue.setAnimationEnabled(true);
             btnContinue.setCursor(new Cursor(Cursor.HAND_CURSOR));
             
-            // Hapus listener lama biar tidak dobel, lalu tambah baru
             for (var l : btnContinue.getActionListeners()) btnContinue.removeActionListener(l);
             
             btnContinue.addActionListener(e -> {
@@ -65,7 +146,6 @@ public class MainMenuScreen extends JPanel {
             btnContinue.setAnimationEnabled(false);
             btnContinue.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
             
-            // Hapus semua action listener agar tidak bisa diklik
             for (var l : btnContinue.getActionListeners()) btnContinue.removeActionListener(l);
         }
         
@@ -74,70 +154,66 @@ public class MainMenuScreen extends JPanel {
 
     private void loadAssets() {
         try {
-            // [FIX JAR] Load Background pakai getResource
             URL bgUrl = getClass().getResource("/images/bg_menu.png");
             if (bgUrl != null) bgImage = new ImageIcon(bgUrl).getImage();
         } catch (Exception e) {}
     }
 
     private void initUI() {
-        // ========================================================
-        // 1. PANEL MENU TENGAH
-        // ========================================================
-        JPanel centerMenuPanel = new JPanel(new GridBagLayout());
+        centerMenuPanel = new JPanel(new GridBagLayout());
         centerMenuPanel.setOpaque(false);
 
         GridBagConstraints gbcMenu = new GridBagConstraints();
         gbcMenu.gridx = 0;
         gbcMenu.anchor = GridBagConstraints.CENTER;
 
-        // --- TOMBOL 0: LANJUTKAN ---
+        // --- TOMBOL 0: LANJUTKAN (Set ukuran JUMBO awal) ---
         btnContinue = new ImageButton("btn_not_continue.png");
-        btnContinue.setButtonSize(400, 220);
+        btnContinue.setButtonSize(520, 280); 
         
         gbcMenu.gridy = 0;
-        gbcMenu.insets = new Insets(90, 0, -60, 0); 
+        gbcMenu.insets = new Insets(100, 0, -70, 0); 
         centerMenuPanel.add(btnContinue, gbcMenu);
 
         // --- TOMBOL 1: MULAI BARU ---
-        ImageButton btnNewGame = new ImageButton("btn_start.png");
-        btnNewGame.setButtonSize(400, 200); 
+        btnNewGame = new ImageButton("btn_start.png");
+        btnNewGame.setButtonSize(520, 260); 
         btnNewGame.addActionListener(e -> {
             playSound("click");
             ScreenManager.getInstance().showScreen("PROFILE_CREATE");
         });
 
         gbcMenu.gridy = 1;
-        gbcMenu.insets = new Insets(-20, 0, -50, 0); 
+        gbcMenu.insets = new Insets(-20, 0, -60, 0); 
         centerMenuPanel.add(btnNewGame, gbcMenu);
 
         // --- TOMBOL 2: LEADERBOARD ---
-        ImageButton btnLeaderboard = new ImageButton("btn_leaderboard.png");
-        btnLeaderboard.setButtonSize(380, 190);
+        btnLeaderboard = new ImageButton("btn_leaderboard.png");
+        btnLeaderboard.setButtonSize(480, 240);
         btnLeaderboard.addActionListener(e -> {
             playSound("click");
             ScreenManager.getInstance().showScreen("LEADERBOARD");
         });
 
         gbcMenu.gridy = 2;
-        gbcMenu.insets = new Insets(-20, 0, -55, 0); 
+        gbcMenu.insets = new Insets(-20, 0, -70, 0); 
         centerMenuPanel.add(btnLeaderboard, gbcMenu);
 
         // --- TOMBOL 3: SETTINGS ---
-        ImageButton btnSettings = new ImageButton("btn_settings.png");
-        btnSettings.setButtonSize(400, 250);
+        btnSettings = new ImageButton("btn_settings.png");
+        btnSettings.setButtonSize(520, 320);
         btnSettings.addActionListener(e -> {
             playSound("click");
             ScreenManager.getInstance().showScreen("SETTINGS");
         });
 
         gbcMenu.gridy = 3;
-        gbcMenu.insets = new Insets(-55, 0, -30, 0); 
+        gbcMenu.insets = new Insets(-70, 0, -40, 0); 
         centerMenuPanel.add(btnSettings, gbcMenu);
 
         // --- TOMBOL 4: KELUAR ---
-        ImageButton btnExit = new ImageButton("btn_exit.png");
-        btnExit.setButtonSize(380, 190);
+        btnExit = new ImageButton("btn_exit.png");
+        btnExit.setButtonSize(480, 240);
         btnExit.addActionListener(e -> {
             playSound("click");
             int confirm = JOptionPane.showConfirmDialog(this, 
@@ -146,7 +222,7 @@ public class MainMenuScreen extends JPanel {
         });
 
         gbcMenu.gridy = 4;
-        gbcMenu.insets = new Insets(-30, 0, 0, 0); 
+        gbcMenu.insets = new Insets(-40, 0, 0, 0); 
         centerMenuPanel.add(btnExit, gbcMenu);
 
         // Tambahkan ke Layar Utama
@@ -156,7 +232,6 @@ public class MainMenuScreen extends JPanel {
         gbcMain.anchor = GridBagConstraints.CENTER;
         add(centerMenuPanel, gbcMain);
         
-        // Panggil update status tombol sekali di awal
         updateContinueButtonState();
     }
 
@@ -219,13 +294,11 @@ public class MainMenuScreen extends JPanel {
         
         private void loadImage(String filename) {
             try {
-                // [FIX JAR] Load Button Images pakai getResource
                 URL url = getClass().getResource("/images/" + filename);
                 if (url != null) {
                     img = new ImageIcon(url).getImage();
                     setText(""); 
                 } else {
-                    // Fallback kalau gambar hilang
                     setText(filename);
                     setForeground(Color.RED);
                     setFont(new Font("Arial", Font.BOLD, 24));
@@ -262,6 +335,7 @@ public class MainMenuScreen extends JPanel {
 
                 int baseW = getWidth();
                 int baseH = getHeight();
+                
                 int drawW = (int) (baseW * scale);
                 int drawH = (int) (baseH * scale);
                 int x = (baseW - drawW) / 2;

@@ -8,7 +8,7 @@ import javax.swing.SwingUtilities;
 
 public class Main {
     
-    private static final boolean DEBUG_SKIP_SPLASH = false;
+    private static final boolean DEBUG_SKIP_SPLASH = true;
 
 
     public static void main(String[] args) {

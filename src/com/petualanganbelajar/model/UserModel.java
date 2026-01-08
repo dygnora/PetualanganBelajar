@@ -11,7 +11,8 @@ package com.petualanganbelajar.model;
 public class UserModel {
     private int id;
     private String name;
-    private String avatar;      // Nama file gambar (misal: "avatar_1.png")
+    private String avatar;       // Nama file gambar (misal: "avatar_1.png")
+    private int level;           // [BARU] Level User
     private int bgmVolume;
     private int sfxVolume;
     private boolean isActive;
@@ -19,11 +20,12 @@ public class UserModel {
     // Constructor Kosong (Wajib ada)
     public UserModel() {}
 
-    // Constructor Lengkap
-    public UserModel(int id, String name, String avatar, int bgmVolume, int sfxVolume, boolean isActive) {
+    // Constructor Lengkap (Updated with Level)
+    public UserModel(int id, String name, String avatar, int level, int bgmVolume, int sfxVolume, boolean isActive) {
         this.id = id;
         this.name = name;
         this.avatar = avatar;
+        this.level = level;
         this.bgmVolume = bgmVolume;
         this.sfxVolume = sfxVolume;
         this.isActive = isActive;
@@ -39,10 +41,17 @@ public class UserModel {
     public String getAvatar() { return avatar; }
     public void setAvatar(String avatar) { this.avatar = avatar; }
     
+    // [BARU] Getter Setter Level
+    public int getLevel() { return level; }
+    public void setLevel(int level) { this.level = level; }
+    
     // Volume default 80/100 jika null
     public int getBgmVolume() { return bgmVolume; }
     public void setBgmVolume(int bgmVolume) { this.bgmVolume = bgmVolume; }
 
     public int getSfxVolume() { return sfxVolume; }
     public void setSfxVolume(int sfxVolume) { this.sfxVolume = sfxVolume; }
+    
+    public boolean isActive() { return isActive; }
+    public void setActive(boolean active) { isActive = active; }
 }
