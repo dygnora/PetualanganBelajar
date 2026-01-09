@@ -8,7 +8,6 @@ public class ProgressRepository {
     // 1. Cek level tertinggi
     public int getHighestLevelUnlocked(int userId, int moduleId) {
         String sql = "SELECT highest_level_unlocked FROM user_progress WHERE user_id = ? AND module_id = ?";
-        // [FIX] Ensure ResultSet is also in try-with-resources or explicitly closed
         try (Connection conn = DatabaseConnection.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             
@@ -26,34 +25,84 @@ public class ProgressRepository {
         return 1; // Default Level 1
     }
 
-    // 2. Simpan Skor
-    public void saveScore(int userId, int moduleId, int level, int score) {
-        String sql = "INSERT INTO game_results (user_id, module_id, level, score, created_at) VALUES (?, ?, ?, ?, datetime('now'))";
+    // 2. Simpan Skor (LOGIC BARU: INSERT OR UPDATE HIGHSCORE)
+    public void saveScore(int userId, int moduleId, int level, int newScore) {
+        System.out.println("\n--- [DEBUG] START SAVE SCORE ---");
+        System.out.println("Input -> User: " + userId + ", Modul: " + moduleId + ", Level: " + level + ", Score: " + newScore);
+        
+        // Cek Stack Trace (Siapa yang memanggil method ini?)
+        // Ini akan memberitahu kita jika saveScore dipanggil 2x dari tempat berbeda
+        StackTraceElement[] stack = Thread.currentThread().getStackTrace();
+        if (stack.length > 2) {
+            System.out.println("Caller: " + stack[2].getClassName() + "." + stack[2].getMethodName());
+        }
+
+        String checkSql = "SELECT score FROM game_results WHERE user_id = ? AND module_id = ? AND level = ?";
+        int oldScore = -1;
 
         try (Connection conn = DatabaseConnection.connect();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+             PreparedStatement checkStmt = conn.prepareStatement(checkSql)) {
             
-            pstmt.setInt(1, userId);
-            pstmt.setInt(2, moduleId);
-            pstmt.setInt(3, level);
-            pstmt.setInt(4, score);
+            checkStmt.setInt(1, userId);
+            checkStmt.setInt(2, moduleId);
+            checkStmt.setInt(3, level);
+            ResultSet rs = checkStmt.executeQuery();
             
-            pstmt.executeUpdate();
+            if (rs.next()) {
+                oldScore = rs.getInt("score");
+                System.out.println("[DEBUG] Data Lama Ditemukan: Score = " + oldScore);
+            } else {
+                System.out.println("[DEBUG] Data Lama TIDAK Ditemukan (Insert Baru)");
+            }
+            
+            if (oldScore == -1 || newScore > oldScore) {
+                String sql = "INSERT OR REPLACE INTO game_results (user_id, module_id, level, score, created_at) VALUES (?, ?, ?, ?, datetime('now'))";
+                try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                    pstmt.setInt(1, userId);
+                    pstmt.setInt(2, moduleId);
+                    pstmt.setInt(3, level);
+                    pstmt.setInt(4, newScore);
+                    int row = pstmt.executeUpdate();
+                    System.out.println("[DEBUG] Execute Update: " + row + " baris terpengaruh.");
+                }
+            } else {
+                System.out.println("[DEBUG] Skor tidak disimpan karena (" + newScore + " <= " + oldScore + ")");
+            }
+
+            // --- CCTV EXTRA: CEK TOTAL DATA ---
+            // Kita hitung ada berapa baris untuk user ini di level ini. Harusnya CUMA 1.
+            String countSql = "SELECT COUNT(*) as total, SUM(score) as total_score FROM game_results WHERE user_id = ? AND module_id = ? AND level = ?";
+            try(PreparedStatement cntStmt = conn.prepareStatement(countSql)) {
+                cntStmt.setInt(1, userId);
+                cntStmt.setInt(2, moduleId);
+                cntStmt.setInt(3, level);
+                ResultSet rsCnt = cntStmt.executeQuery();
+                if(rsCnt.next()) {
+                    int jumlahBaris = rsCnt.getInt("total");
+                    int totalSkor = rsCnt.getInt("total_score");
+                    System.out.println("[DEBUG] VERIFIKASI DB -> Jumlah Baris: " + jumlahBaris + " (Harusnya 1), Total Skor: " + totalSkor);
+                    
+                    if (jumlahBaris > 1) {
+                        System.err.println("!!! BAHAYA: ADA DUPLIKAT DATA DI DATABASE !!!");
+                        System.err.println("Solusi: Hapus file .db dan jalankan ulang agar UNIQUE constraint aktif.");
+                    }
+                }
+            }
+
         } catch (SQLException e) {
             e.printStackTrace();
         }
+        System.out.println("--- [DEBUG] END SAVE SCORE ---\n");
     }
 
     // 3. Buka Level Berikutnya
     public void unlockNextLevel(int userId, int moduleId, int currentLevel) {
         int nextLevel = currentLevel + 1;
         
-        // Kita ijinkan sampai 4 (Tamat Modul), tapi tidak lebih.
         if (nextLevel > 4) return;
 
         int currentUnlocked = getHighestLevelUnlocked(userId, moduleId);
         
-        // Only update if the new level is higher than what's currently unlocked
         if (nextLevel > currentUnlocked) {
             String checkSql = "SELECT id FROM user_progress WHERE user_id = ? AND module_id = ?";
             String updateSql;
@@ -82,7 +131,7 @@ public class ProgressRepository {
                     upStmt.setInt(2, userId);
                     upStmt.setInt(3, moduleId);
                     upStmt.executeUpdate();
-                    System.out.println("LOG: Progress Update -> User " + userId + " Modul " + moduleId + " ke Level " + nextLevel);
+                    System.out.println("LOG: Level Unlocked -> " + nextLevel);
                 }
 
             } catch (SQLException e) {
@@ -91,8 +140,9 @@ public class ProgressRepository {
         }
     }
 
-    // 4. Hitung Total Skor
+    // 4. Hitung Total Skor (Hanya untuk keperluan legacy, bisa dihapus jika tidak dipakai)
     public int calculateTotalScore(int userId) {
+        // Karena sekarang saveScore memastikan hanya ada 1 baris per level, SUM aman digunakan.
         String sql = "SELECT SUM(score) FROM game_results WHERE user_id = ?";
         try (Connection conn = DatabaseConnection.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -106,7 +156,7 @@ public class ProgressRepository {
         return 0;
     }
 
-    // 5. Cek Apakah Game Tamat (Logic lama)
+    // 5. Cek Apakah Game Tamat
     public boolean isGameCompleted(int userId) {
         String sql = "SELECT COUNT(*) FROM user_progress WHERE user_id = ? AND highest_level_unlocked >= 4";
         try (Connection conn = DatabaseConnection.connect();
@@ -123,13 +173,8 @@ public class ProgressRepository {
         return false;
     }
     
-    // [FIXED] Cek apakah user sudah menamatkan seluruh game (Modul 1-4, Level 3 Selesai)
+    // 6. Cek Tamat Semua Modul
     public boolean isGameFullyCompleted(int userId) {
-        // Instead of calling getHighestLevelUnlocked 4 times (opening/closing 4 connections),
-        // let's do it in one optimized query.
-        
-        // Logic: We need to ensure that for modules 1, 2, 3, and 4, the user has unlocked > 3 (meaning level 4 is available/completed).
-        // This query counts how many distinct modules have reached level > 3 for the user.
         String sql = "SELECT COUNT(DISTINCT module_id) FROM user_progress WHERE user_id = ? AND highest_level_unlocked > 3 AND module_id IN (1, 2, 3, 4)";
 
         try (Connection conn = DatabaseConnection.connect();
@@ -140,7 +185,7 @@ public class ProgressRepository {
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
                     int completedModules = rs.getInt(1);
-                    return completedModules == 4; // True if all 4 modules are completed
+                    return completedModules == 4; 
                 }
             }
         } catch (SQLException e) {

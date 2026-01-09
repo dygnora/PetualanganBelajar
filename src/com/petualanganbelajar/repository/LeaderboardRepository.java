@@ -44,9 +44,36 @@ public class LeaderboardRepository {
     }
 
     // Method 2: Menghitung Total Skor Spesifik User
+    // Method 2: Menghitung Total Skor Spesifik User (VERSI DEBUG)
     public int getTotalScoreByUserId(int userId) {
-        String sql = "SELECT SUM(score) as total FROM game_results WHERE user_id = ?";
+        System.out.println("\n--- [DEBUG] LEADERBOARD CHECK (User ID: " + userId + ") ---");
+        
+        // 1. Cek Detail Baris per Baris (Detektif)
+        String detailSql = "SELECT id, module_id, level, score FROM game_results WHERE user_id = ?";
+        try (Connection conn = DatabaseConnection.connect();
+             PreparedStatement pstmt = conn.prepareStatement(detailSql)) {
+            
+            pstmt.setInt(1, userId);
+            ResultSet rs = pstmt.executeQuery();
+            
+            System.out.println("Isi Tabel 'game_results' untuk user ini:");
+            System.out.println("| ID | Modul | Level | Score |");
+            System.out.println("|----|-------|-------|-------|");
+            
+            while (rs.next()) {
+                int id = rs.getInt("id");
+                int mod = rs.getInt("module_id");
+                int lvl = rs.getInt("level");
+                int scr = rs.getInt("score");
+                System.out.println(String.format("| %-2d | %-5d | %-5d | %-5d |", id, mod, lvl, scr));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
 
+        // 2. Hitung Total Sebenarnya
+        String sql = "SELECT SUM(score) as total FROM game_results WHERE user_id = ?";
+        int total = 0;
         try (Connection conn = DatabaseConnection.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
@@ -54,12 +81,14 @@ public class LeaderboardRepository {
             ResultSet rs = pstmt.executeQuery();
 
             if (rs.next()) {
-                return rs.getInt("total");
+                total = rs.getInt("total");
             }
+            System.out.println(">> HASIL QUERY SUM(score): " + total);
 
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return 0;
+        System.out.println("--- [DEBUG] END LEADERBOARD CHECK ---\n");
+        return total;
     }
 }
