@@ -113,7 +113,7 @@ public class ModuleSelectionScreen extends JPanel {
             }
         }
         
-        // 4. Update Navigation Buttons (Panggil method updateScale milik class baru)
+        // 4. Update Navigation Buttons
         if (btnPrev != null) btnPrev.updateScale(scaleFactor);
         if (btnNext != null) btnNext.updateScale(scaleFactor);
         
@@ -121,7 +121,13 @@ public class ModuleSelectionScreen extends JPanel {
         btnBack.updateScale(scaleFactor);
         footer.setBorder(new EmptyBorder(0,0, (int)(30*scaleFactor), 0));
 
-        revalidate();
+        // [FIX] Force Re-Layout for all containers
+        topBar.revalidate(); topBar.repaint();
+        levelButtonPanel.revalidate(); levelButtonPanel.repaint();
+        cardPanel.revalidate(); cardPanel.repaint();
+        centerContainer.revalidate(); centerContainer.repaint();
+        footer.revalidate(); footer.repaint();
+        contentPanel.revalidate(); contentPanel.repaint();
     }
     
     private void loadPrologueBackground() {
@@ -152,7 +158,9 @@ public class ModuleSelectionScreen extends JPanel {
                 layeredPane.setBounds(0, 0, w, h);
                 contentPanel.setBounds(0, 0, w, h);
                 storyPanel.setBounds(0, 0, w, h);
-                revalidate();
+                
+                calculateScaleFactor();
+                updateResponsiveLayout();
             }
         });
     }
@@ -183,7 +191,7 @@ public class ModuleSelectionScreen extends JPanel {
 
         GridBagConstraints gbc = new GridBagConstraints();
 
-        // [GANTI] Pakai AnimatedNavButton
+        // Prev Button
         btnPrev = new AnimatedNavButton("btn_prev.png", "<"); 
         btnPrev.addActionListener(e -> {
             playSound("click");
@@ -196,6 +204,7 @@ public class ModuleSelectionScreen extends JPanel {
         gbc.anchor = GridBagConstraints.CENTER; gbc.fill = GridBagConstraints.NONE;
         centerContainer.add(btnPrev, gbc);
 
+        // Card Panel
         cardPanel = new PaperCardPanel(); 
         cardPanel.setLayout(new BoxLayout(cardPanel, BoxLayout.Y_AXIS));
         
@@ -233,7 +242,7 @@ public class ModuleSelectionScreen extends JPanel {
         gbc.gridx = 1; gbc.gridy = 0; gbc.weightx = 0.8; 
         centerContainer.add(cardPanel, gbc);
 
-        // [GANTI] Pakai AnimatedNavButton
+        // Next Button
         btnNext = new AnimatedNavButton("btn_next.png", ">");
         btnNext.addActionListener(e -> {
             playSound("click");
@@ -293,11 +302,7 @@ public class ModuleSelectionScreen extends JPanel {
 
     @Override
     protected void paintComponent(Graphics g) {
-        calculateScaleFactor();
-        if (Math.abs(scaleFactor - lastScaleFactor) > 0.001f) {
-            lastScaleFactor = scaleFactor;
-            SwingUtilities.invokeLater(this::updateResponsiveLayout);
-        }
+        // Hapus logika resize di sini karena sudah ada di componentListener
         super.paintComponent(g);
         
         if (isPrologueMode && prologueBgImage != null) {
@@ -365,7 +370,7 @@ public class ModuleSelectionScreen extends JPanel {
             boolean isUnlocked = (lvlNum <= highestUnlocked);
             
             LevelButton btnLvl = new LevelButton(lvlNum, isUnlocked, themeColor);
-            btnLvl.updateScale(scaleFactor);
+            btnLvl.updateScale(scaleFactor); // Apply current scale
             
             btnLvl.addActionListener(e -> {
                 if (isUnlocked) {
@@ -405,17 +410,14 @@ public class ModuleSelectionScreen extends JPanel {
 
     // --- INNER CLASSES (CUSTOM COMPONENTS) ---
     
-    // [BARU] Class khusus untuk tombol Panah yang bisa scale animation
     class AnimatedNavButton extends JButton {
         private Image image;
         private Timer animTimer;
-        private float animScale = 1.0f; // Scale untuk animasi hover (1.0 -> 1.2)
+        private float animScale = 1.0f; 
         private float targetAnimScale = 1.0f;
-        private float responsiveScale = 1.0f; // Scale untuk layar
         private int baseSize = 160;
 
         public AnimatedNavButton(String filename, String fallbackText) {
-            // Load image
             URL url = getClass().getResource("/images/" + filename);
             if (url != null) {
                 image = new ImageIcon(url).getImage();
@@ -427,7 +429,6 @@ public class ModuleSelectionScreen extends JPanel {
             setContentAreaFilled(false); setBorderPainted(false); setFocusPainted(false);
             setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-            // Timer Animasi (Persis FunnyButton)
             animTimer = new Timer(16, e -> {
                 if (Math.abs(targetAnimScale - animScale) > 0.01f) {
                     animScale += (targetAnimScale - animScale) * 0.2f;
@@ -440,25 +441,16 @@ public class ModuleSelectionScreen extends JPanel {
             });
 
             addMouseListener(new MouseAdapter() {
-                @Override
-                public void mouseEntered(MouseEvent e) {
-                    targetAnimScale = 1.15f; // Zoom in saat hover
-                    if (!animTimer.isRunning()) animTimer.start();
-                }
-                @Override
-                public void mouseExited(MouseEvent e) {
-                    targetAnimScale = 1.0f; // Zoom out saat exit
-                    if (!animTimer.isRunning()) animTimer.start();
-                }
+                public void mouseEntered(MouseEvent e) { targetAnimScale = 1.15f; if (!animTimer.isRunning()) animTimer.start(); }
+                public void mouseExited(MouseEvent e) { targetAnimScale = 1.0f; if (!animTimer.isRunning()) animTimer.start(); }
             });
         }
         
         public void updateScale(float s) {
-            this.responsiveScale = s;
             int size = (int)(baseSize * s);
-            // Update font jika fallback text
             if (image == null) setFont(new Font("SansSerif", Font.BOLD, (int)(80 * s)));
             setPreferredSize(new Dimension(size, size));
+            setMinimumSize(new Dimension(size, size)); // Safety
             revalidate();
         }
 
@@ -469,19 +461,10 @@ public class ModuleSelectionScreen extends JPanel {
                 g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-                int w = getWidth();
-                int h = getHeight();
-                
-                // Hitung ukuran gambar berdasarkan scale animasi
-                // Kita ambil base size dari width tombol saat ini
+                int w = getWidth(); int h = getHeight();
                 float finalScale = animScale;
-                
-                int imgW = (int)(w * finalScale);
-                int imgH = (int)(h * finalScale);
-                
-                // Center image
-                int x = (w - imgW) / 2;
-                int y = (h - imgH) / 2;
+                int imgW = (int)(w * finalScale); int imgH = (int)(h * finalScale);
+                int x = (w - imgW) / 2; int y = (h - imgH) / 2;
 
                 g2.drawImage(image, x, y, imgW, imgH, this);
                 g2.dispose();
@@ -509,6 +492,7 @@ public class ModuleSelectionScreen extends JPanel {
         public void updateScale(float s) {
             int size = (int)(110 * s);
             setPreferredSize(new Dimension(size, size));
+            setMinimumSize(new Dimension(size, size)); // Safety
             revalidate();
         }
         
@@ -565,7 +549,9 @@ public class ModuleSelectionScreen extends JPanel {
             int w = (int)(350 * s); 
             int h = (int)(80 * s);
             setPreferredSize(new Dimension(w, h));
+            setMinimumSize(new Dimension(w, h));
             setFont(new Font("Comic Sans MS", Font.BOLD, (int)(26 * s)));
+            revalidate();
         }
 
         @Override protected void paintComponent(Graphics g) {

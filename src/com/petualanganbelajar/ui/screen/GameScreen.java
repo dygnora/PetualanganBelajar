@@ -138,25 +138,37 @@ public class GameScreen extends JPanel {
             headerPanel.setBorder(new EmptyBorder(topPad, sidePad, 5, sidePad));
         }
 
-        // 3. Update Ukuran HUD
+        // 3. Update Ukuran HUD Level
         if (levelHUD != null) {
-            int hudW = (int)(320 * scaleFactor);
-            int hudH = (int)(90 * scaleFactor);
-            levelHUD.setPreferredSize(new Dimension(hudW, hudH));
+            levelHUD.updateScale(scaleFactor); 
         }
         
-        // 4. Update Area Soal (Padding)
+        // 4. Update Skala Profile HUD
+        if (userProfileHUD != null) {
+            userProfileHUD.updateScale(scaleFactor);
+        }
+
+        // 5. Update Skala Score HUD
+        if (gameScoreHUD != null) {
+            gameScoreHUD.updateScale(scaleFactor);
+        }
+        
+        // 6. Update Area Soal (Padding)
         if (questionPanel != null) {
              int qPad = (int)(30 * scaleFactor);
              questionPanel.setBorder(new EmptyBorder(qPad, qPad, qPad, qPad));
         }
         
-        // [FIX] Trigger ulang render visualizer jika sedang menampilkan soal agar ukuran icon terupdate
+        // [CRITICAL FIX] Force the layout manager to re-layout the components
+        if (headerPanel != null) {
+            headerPanel.revalidate(); // Calculates layout based on new preferred sizes
+            headerPanel.repaint();    // Redraws the components
+        }
+        
+        // Optional: Trigger visual container refresh if needed
         if (visualContainer != null && visualContainer.getComponentCount() > 0) {
-             // Opsional: Anda bisa memanggil showQuestion() lagi jika ingin redraw total,
-             // tapi hati-hati mereset state input.
-             // Untuk sekarang, kita biarkan layout manager mengurus posisi, 
-             // icon size akan terupdate saat soal berikutnya muncul atau jika kita panggil render ulang.
+             visualContainer.revalidate();
+             visualContainer.repaint();
         }
     }
 
@@ -184,22 +196,36 @@ public class GameScreen extends JPanel {
 
     private void setupGameContentUI() {
         // --- HEADER PANEL ---
-        headerPanel = new JPanel(new BorderLayout());
+        headerPanel = new JPanel(new GridBagLayout());
         headerPanel.setOpaque(false);
         headerPanel.setBorder(new EmptyBorder(10, 20, 5, 20));
 
-        // 1. LEFT: Profile HUD
+        GridBagConstraints gbc = new GridBagConstraints();
+        
+        // [TAMBAHAN PENTING] Agar layout tidak kolaps (tinggi 0) saat resize
+        gbc.weighty = 1.0; 
+        // Kita pakai NONE agar HUD tidak melar (stretch) secara paksa, tetap sesuai ukuran aslinya
+        gbc.fill = GridBagConstraints.NONE; 
+        
+        // --- 1. LEFT: Profile HUD ---
         userProfileHUD = new UserProfileHUD();
-        headerPanel.add(userProfileHUD, BorderLayout.WEST);
+        
+        gbc.gridx = 0; 
+        gbc.gridy = 0;
+        gbc.weightx = 0.33; 
+        gbc.anchor = GridBagConstraints.NORTHWEST; // Rata Kiri Atas
+        headerPanel.add(userProfileHUD, gbc);
 
-        // 2. CENTER: Level Info (Modular)
+        // --- 2. CENTER: Level Info ---
         levelHUD = new GameLevelHUD();
-        JPanel centerWrapper = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
-        centerWrapper.setOpaque(false);
-        centerWrapper.add(levelHUD);
-        headerPanel.add(centerWrapper, BorderLayout.CENTER);
+        
+        gbc.gridx = 1;
+        gbc.gridy = 0;
+        gbc.weightx = 0.33;
+        gbc.anchor = GridBagConstraints.NORTH; // Rata Tengah Atas
+        headerPanel.add(levelHUD, gbc);
 
-        // 3. RIGHT: Score HUD + Pause
+        // --- 3. RIGHT: Score HUD ---
         JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
         rightPanel.setOpaque(false);
 
@@ -210,13 +236,18 @@ public class GameScreen extends JPanel {
         rightPanel.add(gameScoreHUD);
         rightPanel.add(btnPause);
 
-        headerPanel.add(rightPanel, BorderLayout.EAST);
+        gbc.gridx = 2;
+        gbc.gridy = 0;
+        gbc.weightx = 0.33;
+        gbc.anchor = GridBagConstraints.NORTHEAST; // Rata Kanan Atas
+        headerPanel.add(rightPanel, gbc);
+
+        // Masukkan header ke panel utama
         gameContentPanel.add(headerPanel, BorderLayout.NORTH);
 
-        // --- GAME AREA ---
+        // --- GAME AREA (Sama seperti kode Anda) ---
         JPanel gameContainer = new JPanel(new BorderLayout());
         gameContainer.setOpaque(false);
-        // Padding responsif awal
         gameContainer.setBorder(new EmptyBorder(0, 80, 10, 80));
 
         questionPanel = new ModernBoardPanel();
@@ -231,11 +262,11 @@ public class GameScreen extends JPanel {
         visualContainer = new JPanel();
         visualContainer.setOpaque(false);
 
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.gridx = 0; gbc.gridy = 0; gbc.insets = new Insets(0, 0, 20, 0);
-        questionPanel.add(lblInstruction, gbc);
-        gbc.gridy = 1; gbc.insets = new Insets(0, 0, 0, 0);
-        questionPanel.add(visualContainer, gbc);
+        GridBagConstraints gbcQ = new GridBagConstraints();
+        gbcQ.gridx = 0; gbcQ.gridy = 0; gbcQ.insets = new Insets(0, 0, 20, 0);
+        questionPanel.add(lblInstruction, gbcQ);
+        gbcQ.gridy = 1; gbcQ.insets = new Insets(0, 0, 0, 0);
+        questionPanel.add(visualContainer, gbcQ);
 
         JPanel boardWrapper = new JPanel(new GridBagLayout());
         boardWrapper.setOpaque(false);
@@ -253,7 +284,6 @@ public class GameScreen extends JPanel {
 
         gameContentPanel.add(gameContainer, BorderLayout.CENTER);
         
-        // Panggil update layout sekali di awal
         SwingUtilities.invokeLater(() -> {
             calculateScaleFactor();
             updateResponsiveLayout();
