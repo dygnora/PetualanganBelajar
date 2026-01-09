@@ -5,9 +5,10 @@ import com.petualanganbelajar.db.DatabaseInitializer;
 import com.petualanganbelajar.ui.screen.*;
 import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
-import javax.swing.ImageIcon; // [BARU]
-import java.awt.Image;        // [BARU]
-import java.net.URL;          // [BARU]
+import javax.swing.ImageIcon;
+import java.awt.Image;
+import java.awt.Taskbar; // Import Taskbar
+import java.net.URL;
 
 public class Main {
     
@@ -48,18 +49,32 @@ public class Main {
         JFrame frame = new JFrame("Petualangan Belajar");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         
-        // [BARU] SET LOGO APLIKASI (TASKBAR & TITLE BAR)
+        // [FIX] SET LOGO APLIKASI (AMAN UNTUK SEMUA OS)
         try {
-            // Pastikan path "/images/logo.png" sesuai dengan struktur folder resources Anda
             URL iconUrl = Main.class.getResource("/images/logo.png");
             if (iconUrl != null) {
                 Image icon = new ImageIcon(iconUrl).getImage();
+                
+                // 1. Set Icon Utama (Wajib untuk Windows/Linux)
+                // Ini saja sudah cukup untuk Windows menampilkan icon di Taskbar & Title Bar
                 frame.setIconImage(icon);
                 
-                // Tambahan: Untuk dukungan Taskbar Java modern (Opsional tapi bagus)
-                if (java.awt.Taskbar.isTaskbarSupported()) {
-                    java.awt.Taskbar.getTaskbar().setIconImage(icon);
+                // 2. Set Icon Taskbar Khusus (Opsional - Terutama untuk macOS)
+                // Kita bungkus try-catch & if-check agar tidak crash di Windows
+                try {
+                    if (Taskbar.isTaskbarSupported()) {
+                        Taskbar taskbar = Taskbar.getTaskbar();
+                        if (taskbar.isSupported(Taskbar.Feature.ICON_IMAGE)) {
+                            taskbar.setIconImage(icon);
+                        }
+                    }
+                } catch (UnsupportedOperationException e) {
+                    // Abaikan error jika OS tidak support fitur ini (Windows sering throw ini)
+                    System.out.println("Info: Taskbar API tidak didukung di OS ini (Aman, pakai frame icon).");
+                } catch (SecurityException e) {
+                    // Abaikan security restriction
                 }
+                
             } else {
                 System.err.println("Warning: Logo tidak ditemukan di /images/logo.png");
             }
@@ -73,7 +88,6 @@ public class Main {
         
         frame.add(sm.getMainPanel());
 
-        // Mulai dari Title Screen
         sm.showScreen("TITLE"); 
 
         frame.setVisible(true);
