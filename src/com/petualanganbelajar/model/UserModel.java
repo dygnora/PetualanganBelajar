@@ -12,7 +12,8 @@ public class UserModel {
     private int id;
     private String name;
     private String avatar;       // Nama file gambar (misal: "avatar_1.png")
-    private int level;           // [BARU] Level User
+    private int level;           // Level User
+    private int totalXP;         // [BARU & PENTING] Total XP Akumulatif
     private int bgmVolume;
     private int sfxVolume;
     private boolean isActive;
@@ -20,7 +21,7 @@ public class UserModel {
     // Constructor Kosong (Wajib ada)
     public UserModel() {}
 
-    // Constructor Lengkap (Updated with Level)
+    // Constructor Lengkap
     public UserModel(int id, String name, String avatar, int level, int bgmVolume, int sfxVolume, boolean isActive) {
         this.id = id;
         this.name = name;
@@ -29,6 +30,7 @@ public class UserModel {
         this.bgmVolume = bgmVolume;
         this.sfxVolume = sfxVolume;
         this.isActive = isActive;
+        this.totalXP = 0; // Default 0 saat inisialisasi awal
     }
 
     // Getter & Setter (Cara cepat akses data)
@@ -41,9 +43,13 @@ public class UserModel {
     public String getAvatar() { return avatar; }
     public void setAvatar(String avatar) { this.avatar = avatar; }
     
-    // [BARU] Getter Setter Level
+    // Getter Setter Level
     public int getLevel() { return level; }
     public void setLevel(int level) { this.level = level; }
+    
+    // [BARU] Getter Setter Total XP (WAJIB ADA AGAR ERROR HILANG)
+    public int getTotalXP() { return totalXP; }
+    public void setTotalXP(int totalXP) { this.totalXP = totalXP; }
     
     // Volume default 80/100 jika null
     public int getBgmVolume() { return bgmVolume; }

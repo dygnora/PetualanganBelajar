@@ -399,7 +399,10 @@ public class ModuleSelectionScreen extends JPanel {
         UserModel u = GameState.getCurrentUser();
         if (u != null) {
             lblUserInfo.setText("Player: " + u.getName());
-            int totalScore = progressRepo.calculateTotalScore(u.getId());
+            
+            // [FIX] Ambil XP dari User (Bukan dari game_results lagi)
+            int totalScore = new com.petualanganbelajar.repository.UserRepository().getUserXP(u.getId());
+            
             lblTotalScore.setText("Total Skor: " + totalScore);
         }
     }

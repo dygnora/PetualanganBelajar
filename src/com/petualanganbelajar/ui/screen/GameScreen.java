@@ -17,6 +17,7 @@ import com.petualanganbelajar.ui.component.GameScoreHUD;
 import com.petualanganbelajar.ui.component.PauseMenuDialog;
 import com.petualanganbelajar.ui.component.StoryDialogPanel;
 import com.petualanganbelajar.ui.component.UserProfileHUD;
+import com.petualanganbelajar.ui.component.LevelUpDialog;
 import com.petualanganbelajar.util.DialogScene;
 import com.petualanganbelajar.util.GameThemeManager;
 import com.petualanganbelajar.util.GameVisualizer;
@@ -534,21 +535,44 @@ public class GameScreen extends JPanel {
     }
 
     private void finishGame() {
-        // [FIX DEBUG] Mencegah eksekusi ganda finishGame
-        if (isGameEnded) {
-            System.out.println("[DEBUG] finishGame() dipanggil lagi, tapi dicegah.");
-            return;
-        }
-        isGameEnded = true; // Kunci pintu
-        System.out.println("[DEBUG] finishGame() dipanggil pertama kali. Memproses simpan...");
+        if (isGameEnded) return;
+        isGameEnded = true;
 
         UserModel user = GameState.getCurrentUser();
+        boolean passed = false;
+        
+        // Variabel lokal untuk menyimpan status Level Up
+        boolean levelUpOccurred = false;
+        int newLevelChar = 0;
+
         if (user != null) {
-            boolean passed = session.saveProgress(user.getId());
+            // 1. Simpan Progress ke Database
+            passed = session.saveProgress(user.getId());
+            
+            // 2. [FIX] Ambil Status Level Up DARI SESSION (Setelah saveProgress dipanggil)
+            levelUpOccurred = session.isLeveledUp();
+            newLevelChar = session.getNewCharacterLevel();
+            
             if (passed) soundPlayer.playSFX("level_complete.wav");
             else soundPlayer.playSFX("level_failed.wav");
         }
-        checkAndPlayOutroStoryAndFinish();
+
+        // 3. Logika Urutan Tampilan: Dialog Level Up -> Outro Story
+        if (levelUpOccurred) {
+            final int levelToShow = newLevelChar;
+            SwingUtilities.invokeLater(() -> {
+                Frame parentFrame = (Frame) SwingUtilities.getWindowAncestor(this);
+                // Tampilkan Dialog
+                LevelUpDialog dialog = new LevelUpDialog(parentFrame, levelToShow);
+                dialog.setVisible(true); // Program akan berhenti di sini sampai dialog ditutup (Modal)
+                
+                // Setelah dialog ditutup, lanjut ke Outro
+                checkAndPlayOutroStoryAndFinish();
+            });
+        } else {
+            // Jika TIDAK naik level, langsung lanjut
+            checkAndPlayOutroStoryAndFinish();
+        }
     }
 
     // --- OUTRO & EPILOGUE ---

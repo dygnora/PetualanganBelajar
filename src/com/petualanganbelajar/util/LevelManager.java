@@ -3,7 +3,7 @@ package com.petualanganbelajar.util;
 public class LevelManager {
 
     // Konstanta: Faktor pengali kesulitan
-    private static final int BASE_XP_FACTOR = 100; 
+    private static final int BASE_XP_FACTOR = 50; 
 
     /**
      * Menghitung Level saat ini berdasarkan Total Skor.

@@ -9,20 +9,18 @@ import java.util.List;
 
 public class LeaderboardRepository {
 
-    // Method 1: Mengambil 10 Besar Peringkat
+    // Method 1: Mengambil 10 Besar Peringkat berdasarkan TOTAL XP
     public List<LeaderboardEntry> getTopScores() {
         List<LeaderboardEntry> list = new ArrayList<>();
 
-        String sql =
-            "SELECT " +
-            "COALESCE(u.name, 'Unknown') AS name, " +
-            "COALESCE(u.avatar, 'default.png') AS avatar, " +
-            "COALESCE(u.level, 1) AS level, " +
-            "SUM(g.score) AS total_score " +
-            "FROM game_results g " +
-            "LEFT JOIN users u ON g.user_id = u.id " +   // 🔥 FIX UTAMA
-            "GROUP BY g.user_id " +
-            "ORDER BY total_score DESC " +
+        // [FIX]
+        // 1. Hapus "WHERE is_active = 1" agar user yang dihapus tetap muncul.
+        // 2. Tambahkan "WHERE total_xp > 0" agar user baru (XP 0) tidak memenuhi leaderboard.
+        String sql = 
+            "SELECT name, avatar, level, total_xp AS total_score, is_active " +
+            "FROM users " +
+            "WHERE total_xp > 0 " + // Hanya tampilkan yang sudah pernah main
+            "ORDER BY total_xp DESC " + 
             "LIMIT 10";
 
         try (Connection conn = DatabaseConnection.connect();
@@ -30,8 +28,16 @@ public class LeaderboardRepository {
              ResultSet rs = stmt.executeQuery(sql)) {
 
             while (rs.next()) {
+                String name = rs.getString("name");
+                boolean isActive = rs.getInt("is_active") == 1;
+                
+                // [OPSIONAL] Tandai user yang sudah dihapus
+                if (!isActive) {
+                    name = name + " (DIHAPUS)"; 
+                }
+
                 list.add(new LeaderboardEntry(
-                    rs.getString("name"),
+                    name,
                     rs.getString("avatar"),
                     rs.getInt("level"),
                     rs.getInt("total_score")
@@ -44,36 +50,9 @@ public class LeaderboardRepository {
     }
 
     // Method 2: Menghitung Total Skor Spesifik User
-    // Method 2: Menghitung Total Skor Spesifik User (VERSI DEBUG)
     public int getTotalScoreByUserId(int userId) {
-        System.out.println("\n--- [DEBUG] LEADERBOARD CHECK (User ID: " + userId + ") ---");
-        
-        // 1. Cek Detail Baris per Baris (Detektif)
-        String detailSql = "SELECT id, module_id, level, score FROM game_results WHERE user_id = ?";
-        try (Connection conn = DatabaseConnection.connect();
-             PreparedStatement pstmt = conn.prepareStatement(detailSql)) {
-            
-            pstmt.setInt(1, userId);
-            ResultSet rs = pstmt.executeQuery();
-            
-            System.out.println("Isi Tabel 'game_results' untuk user ini:");
-            System.out.println("| ID | Modul | Level | Score |");
-            System.out.println("|----|-------|-------|-------|");
-            
-            while (rs.next()) {
-                int id = rs.getInt("id");
-                int mod = rs.getInt("module_id");
-                int lvl = rs.getInt("level");
-                int scr = rs.getInt("score");
-                System.out.println(String.format("| %-2d | %-5d | %-5d | %-5d |", id, mod, lvl, scr));
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+        String sql = "SELECT total_xp FROM users WHERE id = ?";
 
-        // 2. Hitung Total Sebenarnya
-        String sql = "SELECT SUM(score) as total FROM game_results WHERE user_id = ?";
-        int total = 0;
         try (Connection conn = DatabaseConnection.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
@@ -81,14 +60,12 @@ public class LeaderboardRepository {
             ResultSet rs = pstmt.executeQuery();
 
             if (rs.next()) {
-                total = rs.getInt("total");
+                return rs.getInt("total_xp");
             }
-            System.out.println(">> HASIL QUERY SUM(score): " + total);
 
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        System.out.println("--- [DEBUG] END LEADERBOARD CHECK ---\n");
-        return total;
+        return 0;
     }
 }

@@ -6,7 +6,16 @@ import java.sql.*;
 public class DatabaseInitializer {
 
     public static void createTables() {
-        String sqlUsers = "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, avatar TEXT NOT NULL, level INTEGER DEFAULT 1, bgm_volume INTEGER DEFAULT 80, sfx_volume INTEGER DEFAULT 100, is_active INTEGER DEFAULT 1);";
+        String sqlUsers = "CREATE TABLE IF NOT EXISTS users (" +
+                          "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                          "name TEXT NOT NULL, " +
+                          "avatar TEXT NOT NULL, " +
+                          "level INTEGER DEFAULT 1, " +
+                          "total_xp INTEGER DEFAULT 0, " + // <--- TAMBAHAN KOLOM BARU
+                          "bgm_volume INTEGER DEFAULT 80, " +
+                          "sfx_volume INTEGER DEFAULT 100, " +
+                          "is_active INTEGER DEFAULT 1);";
+
         String sqlModules = "CREATE TABLE IF NOT EXISTS modules (id INTEGER PRIMARY KEY, name TEXT NOT NULL, description TEXT);";
         String sqlQuestions = "CREATE TABLE IF NOT EXISTS questions (id INTEGER PRIMARY KEY AUTOINCREMENT, module_id INTEGER, level INTEGER, question_type TEXT, question_text TEXT, question_image TEXT, question_audio TEXT, option_a TEXT, option_b TEXT, option_c TEXT, correct_answer TEXT);";
         String sqlProgress = "CREATE TABLE IF NOT EXISTS user_progress (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, module_id INTEGER, highest_level_unlocked INTEGER DEFAULT 1);";
