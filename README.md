@@ -44,11 +44,12 @@ Struktur dan relasi database digambarkan pada ERD berikut.
 
 ```mermaid
 erDiagram
-
     USERS {
         int id PK
         string name
         string avatar
+        int level
+        int total_xp
         int bgm_volume
         int sfx_volume
         int is_active
@@ -74,6 +75,13 @@ erDiagram
         string correct_answer
     }
 
+    USER_PROGRESS {
+        int id PK
+        int user_id FK
+        int module_id FK
+        int highest_level_unlocked
+    }
+
     GAME_RESULTS {
         int id PK
         int user_id FK
@@ -83,27 +91,20 @@ erDiagram
         string created_at
     }
 
-    USER_PROGRESS {
-        int id PK
-        int user_id FK
-        int module_id FK
-        int highest_level_unlocked
-    }
-
     STORY_PROGRESS {
         int id PK
         int user_id FK
-        int module_id FK
+        int module_id
         int level
         string story_type
-        timestamp seen_at
+        string seen_at
     }
 
-    USERS ||--o{ GAME_RESULTS : plays
-    USERS ||--o{ USER_PROGRESS : tracks
-    USERS ||--o{ STORY_PROGRESS : experiences
+    USERS ||--o{ USER_PROGRESS : has
+    USERS ||--o{ GAME_RESULTS : records
+    USERS ||--o{ STORY_PROGRESS : views
 
     MODULES ||--o{ QUESTIONS : contains
-    MODULES ||--o{ GAME_RESULTS : evaluated_in
-    MODULES ||--o{ USER_PROGRESS : progresses
-    MODULES ||--o{ STORY_PROGRESS : has_story
+    MODULES ||--o{ USER_PROGRESS : tracks
+    MODULES ||--o{ GAME_RESULTS : evaluates
+
