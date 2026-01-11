@@ -5,6 +5,7 @@ import com.petualanganbelajar.core.SoundPlayer;
 import com.petualanganbelajar.repository.UserRepository;
 
 import javax.swing.*;
+import javax.swing.plaf.basic.BasicLabelUI;
 import java.awt.*;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
@@ -24,6 +25,9 @@ public class MainMenuScreen extends JPanel {
     private ImageButton btnSettings;
     private ImageButton btnExit;
     private JPanel centerMenuPanel; 
+    
+    // [BARU] Label Copyright
+    private JLabel lblCredit;
 
     // Variabel Skala
     private final float BASE_W = 1920f;
@@ -56,22 +60,21 @@ public class MainMenuScreen extends JPanel {
         if (this.scaleFactor < 0.5f) this.scaleFactor = 0.5f;
     }
 
-    // --- [UPDATE] UKURAN TOMBOL JUMBO DI SINI ---
+    // --- UPDATE UKURAN TOMBOL & LABEL ---
     private void updateResponsiveLayout() {
         if (centerMenuPanel == null) return;
         
         GridBagLayout layout = (GridBagLayout) centerMenuPanel.getLayout();
 
-        // 1. TOMBOL CONTINUE (Diperbesar dari 400x220 -> 520x280)
+        // 1. TOMBOL CONTINUE
         if (btnContinue != null) {
             btnContinue.setButtonSize((int)(600 * scaleFactor), (int)(320 * scaleFactor));
             GridBagConstraints gbc = layout.getConstraints(btnContinue);
-            // Insets disesuaikan agar tumpukan pas
             gbc.insets = new Insets((int)(100 * scaleFactor), 0, (int)(-95 * scaleFactor), 0);
             layout.setConstraints(btnContinue, gbc);
         }
 
-        // 2. TOMBOL NEW GAME (Diperbesar dari 400x200 -> 520x260)
+        // 2. TOMBOL NEW GAME
         if (btnNewGame != null) {
             btnNewGame.setButtonSize((int)(600 * scaleFactor), (int)(300 * scaleFactor));
             GridBagConstraints gbc = layout.getConstraints(btnNewGame);
@@ -79,7 +82,7 @@ public class MainMenuScreen extends JPanel {
             layout.setConstraints(btnNewGame, gbc);
         }
 
-        // 3. TOMBOL LEADERBOARD (Diperbesar dari 380x190 -> 480x240)
+        // 3. TOMBOL LEADERBOARD
         if (btnLeaderboard != null) {
             btnLeaderboard.setButtonSize((int)(600 * scaleFactor), (int)(260 * scaleFactor));
             GridBagConstraints gbc = layout.getConstraints(btnLeaderboard);
@@ -87,7 +90,7 @@ public class MainMenuScreen extends JPanel {
             layout.setConstraints(btnLeaderboard, gbc);
         }
 
-        // 4. TOMBOL SETTINGS (Diperbesar dari 400x250 -> 520x320)
+        // 4. TOMBOL SETTINGS
         if (btnSettings != null) {
             btnSettings.setButtonSize((int)(600 * scaleFactor), (int)(340 * scaleFactor));
             GridBagConstraints gbc = layout.getConstraints(btnSettings);
@@ -95,7 +98,7 @@ public class MainMenuScreen extends JPanel {
             layout.setConstraints(btnSettings, gbc);
         }
 
-        // 5. TOMBOL EXIT (Diperbesar dari 380x190 -> 480x240)
+        // 5. TOMBOL EXIT
         if (btnExit != null) {
             btnExit.setButtonSize((int)(550 * scaleFactor), (int)(280 * scaleFactor));
             GridBagConstraints gbc = layout.getConstraints(btnExit);
@@ -105,6 +108,19 @@ public class MainMenuScreen extends JPanel {
         
         centerMenuPanel.revalidate();
         centerMenuPanel.repaint();
+
+        // --- [BARU] UPDATE UKURAN CREDIT LABEL ---
+        if (lblCredit != null) {
+            int fontSize = Math.max(14, (int)(22 * scaleFactor)); // Base font 22px
+            Font currentFont = lblCredit.getFont();
+            lblCredit.setFont(new Font(currentFont.getName(), Font.BOLD, fontSize));
+
+            // Update Padding agar tetap nempel di pojok secara proporsional
+            GridBagLayout mainLayout = (GridBagLayout) getLayout();
+            GridBagConstraints gbc = mainLayout.getConstraints(lblCredit);
+            gbc.insets = new Insets(0, 0, (int)(20 * scaleFactor), (int)(30 * scaleFactor));
+            mainLayout.setConstraints(lblCredit, gbc);
+        }
     }
     
     @Override
@@ -167,7 +183,7 @@ public class MainMenuScreen extends JPanel {
         gbcMenu.gridx = 0;
         gbcMenu.anchor = GridBagConstraints.CENTER;
 
-        // --- TOMBOL 0: LANJUTKAN (Set ukuran JUMBO awal) ---
+        // --- TOMBOL 0: LANJUTKAN ---
         btnContinue = new ImageButton("btn_not_continue.png");
         btnContinue.setButtonSize(520, 280); 
         
@@ -225,12 +241,42 @@ public class MainMenuScreen extends JPanel {
         gbcMenu.insets = new Insets(-40, 0, 0, 0); 
         centerMenuPanel.add(btnExit, gbcMenu);
 
-        // Tambahkan ke Layar Utama
+        // --- TAMBAHKAN PANEL MENU KE TENGAH LAYAR ---
         GridBagConstraints gbcMain = new GridBagConstraints();
         gbcMain.gridx = 0; gbcMain.gridy = 0;
         gbcMain.weightx = 1.0; gbcMain.weighty = 1.0;
         gbcMain.anchor = GridBagConstraints.CENTER;
         add(centerMenuPanel, gbcMain);
+        
+        // --- [BARU] COPYRIGHT LABEL (POJOK KANAN BAWAH) ---
+        lblCredit = new JLabel("Developed by Deny Dermawan");
+        lblCredit.setForeground(Color.WHITE); 
+        lblCredit.setFont(new Font("Comic Sans MS", Font.BOLD, 18));
+        
+        // Custom Paint untuk efek Shadow agar terbaca di semua background
+        lblCredit.setUI(new BasicLabelUI() {
+            @Override
+            public void paint(Graphics g, JComponent c) {
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                
+                // Shadow Hitam
+                g2.setColor(new Color(0, 0, 0, 150));
+                g2.drawString(((JLabel)c).getText(), 2, c.getHeight() - 2);
+                
+                // Teks Utama Putih
+                g2.setColor(c.getForeground());
+                g2.drawString(((JLabel)c).getText(), 0, c.getHeight() - 4);
+            }
+        });
+
+        GridBagConstraints gbcCredit = new GridBagConstraints();
+        gbcCredit.gridx = 0; gbcCredit.gridy = 0; // Tumpuk di grid yang sama
+        gbcCredit.weightx = 1.0; gbcCredit.weighty = 1.0;
+        gbcCredit.anchor = GridBagConstraints.SOUTHEAST; // Pojok Kanan Bawah
+        gbcCredit.insets = new Insets(0, 0, 20, 30); // Jarak dari pinggir
+        
+        add(lblCredit, gbcCredit);
         
         updateContinueButtonState();
     }
